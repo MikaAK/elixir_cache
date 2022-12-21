@@ -1,4 +1,6 @@
 defmodule Cache.TermEncoder do
+  @moduledoc false
+
   def encode(term, compression_level)
       when not is_nil(compression_level) and compression_level >= 1 do
     :erlang.term_to_binary(term,

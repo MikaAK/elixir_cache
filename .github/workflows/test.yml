@@ -1,0 +1,39 @@
+name: Test
+
+on: push
+
+jobs:
+  Test:
+    runs-on: ubuntu-latest
+
+    container:
+      image: mikaak/elixir:1.13-alpine
+      env:
+        MIX_ENV: test
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install Rebar & Hex
+        run: mix local.hex --force && mix local.rebar --force
+
+      - name: Install Tar
+        run: apk add --no-cache tar
+
+      - name: Restore dependencies cache
+        uses: actions/cache@v3
+        with:
+          path: |
+                _build
+                deps
+          key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}-${{ hashFiles('./.tool-versions') }}
+          restore-keys: ${{ runner.os }}-mix-
+
+      - name: Install Dependencies
+        run: mix deps.get
+
+      - name: Compile Project
+        run: mix compile
+
+      - name: Run Tests
+        run: mix test
