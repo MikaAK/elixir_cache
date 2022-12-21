@@ -1,4 +1,10 @@
 defmodule Cache.Sandbox do
+  @moduledoc """
+  This module is the adapter used by the SandboxRegistry to mock out all the other adapters
+  therefore it must implement all features shared across all adapters. It uses a basic `Agent`
+  and shouldn't be used in production. It's good for dev & test to avoid needing dependencies
+  """
+
   use Agent
 
   @behaviour Cache

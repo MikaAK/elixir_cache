@@ -1,4 +1,10 @@
 defmodule Cache.SandboxRegistry do
+  @moduledoc """
+  This module is used to start the sandbox registry and register caches in test mode
+
+  More details soon...
+  """
+
   @sleep_for_sync 50
   @registry :anana_cache_sandbox
   @keys :duplicate

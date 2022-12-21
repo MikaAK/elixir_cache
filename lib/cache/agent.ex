@@ -1,4 +1,8 @@
 defmodule Cache.Agent do
+  @moduledoc """
+  This module is the Agent adapter. Very lightweight use only
+  """
+
   use Agent
 
   @behaviour Cache
