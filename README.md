@@ -32,6 +32,14 @@ defmodule MyModule do
     adapter: Cache.Redis,
     name: :my_name,
     sandbox?: Mix.env() === :test,
-    opts: [...otps]
+    opts: [...opts]
 end
+```
+
+Now we can use `MyModule` to call various Cache apis
+
+```elixir
+MyModule.get("key") #> {:ok, nil}
+MyModule.put("key", "value") #> :ok
+MyModule.get("key") #> {:ok, "value"}
 ```
