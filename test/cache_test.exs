@@ -1,8 +1,6 @@
 defmodule CacheTest do
   use ExUnit.Case, async: true
 
-  @adapters [Cache.Redis, Cache.ETS, Cache.Agent]
-
   defmodule TestCache.Redis do
     use Cache,
       adapter: Cache.Redis,
@@ -24,18 +22,12 @@ defmodule CacheTest do
       opts: []
   end
 
-  for {adapter, adapter_opts} <- @adapters do
-    defmodule :"CacheTest.TestCache.#{adapter}" do
-    end
+  @adapters [TestCache.Redis, TestCache.ETS, TestCache.Agent]
 
+  for adapter <- @adapters do
     describe "#{adapter} &get/1 & &put/2 & &delete/1" do
       setup do
-        start_supervised(
-          {Cache,
-           [
-             :"CacheTest.TestCache.#{unquote(adapter)}"
-           ]}
-        )
+        start_supervised({Cache, [unquote(adapter)]})
 
         :ok
       end
@@ -43,7 +35,7 @@ defmodule CacheTest do
       test "puts into the cache and can get it back after" do
         test_key = "#{Faker.Pokemon.name()}_#{Enum.random(1..100_000_000_000)}"
         value = %{some_value: Faker.App.name()}
-        cache_module = :"CacheTest.TestCache.#{unquote(adapter)}"
+        cache_module = unquote(adapter)
 
         assert {:ok, nil} = cache_module.get(test_key)
         assert :ok = cache_module.put(test_key, value)
@@ -56,7 +48,7 @@ defmodule CacheTest do
       test "deleteing from cache works" do
         test_key = "#{Faker.Pokemon.name()}_#{Enum.random(1..100_000_000_000)}"
         value = %{some_value: Faker.App.name()}
-        cache_module = :"CacheTest.TestCache.#{unquote(adapter)}"
+        cache_module = unquote(adapter)
 
         assert :ok = cache_module.put(test_key, value)
 
@@ -72,7 +64,7 @@ defmodule CacheTest do
       test "puts into the cache with nil acts like deleting" do
         test_key = "#{Faker.Pokemon.name()}_#{Enum.random(1..100_000_000_000)}"
         value = %{some_value: Faker.App.name()}
-        cache_module = :"CacheTest.TestCache.#{unquote(adapter)}"
+        cache_module = unquote(adapter)
 
         assert {:ok, nil} = cache_module.get(test_key)
         assert :ok = cache_module.put(test_key, value)

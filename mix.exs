@@ -49,6 +49,7 @@ defmodule ElixirCache.MixProject do
       {:telemetry, "~> 1.1"},
       {:telemetry_metrics, "~> 0.6.1"},
 
+      {:faker, "~> 0.17", only: [:test]},
       {:credo, "~> 1.6", only: [:test, :dev], runtime: false},
       {:blitz_credo_checks, "~> 0.1", only: [:test, :dev], runtime: false},
       {:excoveralls, "~> 0.10", only: :test},
