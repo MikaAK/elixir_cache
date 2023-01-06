@@ -6,19 +6,17 @@ jobs:
   Credo:
     runs-on: ubuntu-latest
 
-    container:
-      image: mikaak/elixir:1.13-alpine
-      env:
-        MIX_ENV: test
+    env:
+      MIX_ENV: test
 
     steps:
       - uses: actions/checkout@v2
 
-      - name: Install Rebar & Hex
-        run: mix local.hex --force && mix local.rebar --force
-
-      - name: Install Tar
-        run: apk add --no-cache tar
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1
+        with:
+          elixir-version: '1.14.1' # Define the elixir version [required]
+          otp-version: '25.1.2' # Define the OTP version [required]
 
       - name: Restore dependencies cache
         uses: actions/cache@v3
