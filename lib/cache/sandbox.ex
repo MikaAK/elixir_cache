@@ -82,4 +82,12 @@ defmodule Cache.Sandbox do
       Map.put(state, key, Map.new(hash_key_value_tuples))
     end)
   end
+
+  def pipeline(_cache_name, _commands, _opts) do
+    raise "Not Implemented"
+  end
+
+  def pipeline!(_cache_name, _commands, _opts) do
+    raise "Not Implemented"
+  end
 end

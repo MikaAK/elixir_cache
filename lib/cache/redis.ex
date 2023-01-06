@@ -50,6 +50,14 @@ defmodule Cache.Redis do
       def hash_values(key) do
         @cache_adapter.hash_values(@cache_name, key, @adapter_opts)
       end
+
+      def pipeline(pool_name, commands, opts \\ []) do
+        @cache_adapter.pipeline(pool_name, commands, opts)
+      end
+
+      def pipeline!(pool_name, commands, opts \\ []) do
+        @cache_adapter.pipeline!(pool_name, commands, opts)
+      end
     end
   end
 

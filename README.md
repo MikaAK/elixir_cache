@@ -44,3 +44,27 @@ MyModule.get("key") #> {:ok, nil}
 MyModule.put("key", "value") #> :ok
 MyModule.get("key") #> {:ok, "value"}
 ```
+
+#### Adapter Specific Functions
+Some adapters have specific functions such as redis which has hash functions and pipeline functions to make calls easier.
+
+These adapter when used will add extra commands to your cache module.
+
+
+## Sandboxing
+Our cache config accepts a `sandbox?: boolean`, in sanbox mode, the `Cache.Sandbox` adapter will be used which is just a simple Agent cache which is unique to the root process. All subprocesses will also have access to the same cache but it will be isolated by root process. This means in test mode, each process has it's own cache and is isolated from other tests, allowing you to run all your tests asynchronously
+
+## Creating Adapters
+Adapters are very easy to create in this model and are basically just a module that implement the `@behaviour Cache`
+
+This behaviour adds the following callbacks
+
+```
+put(cache_name, key, ttl, value, opts \\ [])
+get(cache_name, key, opts \\ [])
+delete(cache_name, key, opts \\ [])
+opts_definition() # NimbleOptions definition map
+child_spec({cache_name, cache_opts})
+```
+
+`Cache.ETS` is probably the easiest adapter to follow as a guide as it's a simple `Task`
