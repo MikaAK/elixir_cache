@@ -6,7 +6,7 @@ defmodule Cache.SandboxRegistry do
   """
 
   @sleep_for_sync 50
-  @registry :anana_cache_sandbox
+  @registry :elixir_cache_sandbox
   @keys :duplicate
 
   @spec start_link :: {:error, any} | {:ok, pid}
@@ -68,17 +68,17 @@ defmodule Cache.SandboxRegistry do
   defp format_example(cache_module) do
     """
     setup do
-      Cache.Support.Sandbox.register_caches(#{inspect(cache_module)})
+      Cache.SandboxRegistry.register_caches(#{inspect(cache_module)})
     end
     """
   end
 
   defp raise_not_started! do
     raise """
-    Registry not started for ScraperEx.Sandbox.
+    Registry not started for Cache.Sandbox.
     Please add the line:
 
-    Cache.Support.Sandbox.start_link()
+    Cache.SandboxRegistry.start_link()
 
     to test_helper.exs for the current app.
     """
