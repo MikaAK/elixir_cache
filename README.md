@@ -37,6 +37,13 @@ defmodule MyModule do
 end
 ```
 
+In our `application.ex`
+```elixir
+children = [
+  {Cache, [MyModule]}
+]
+```
+
 Now we can use `MyModule` to call various Cache apis
 
 ```elixir
