@@ -90,4 +90,12 @@ defmodule Cache.Sandbox do
   def pipeline!(_cache_name, _commands, _opts) do
     raise "Not Implemented"
   end
+
+  def command(_cache_name, _command, _opts) do
+    raise "Not Implemented"
+  end
+
+  def command!(_cache_name, _command, _opts) do
+    raise "Not Implemented"
+  end
 end
