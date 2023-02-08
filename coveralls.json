@@ -1,6 +1,8 @@
 {
   "skip_files": [
-    "test/support/*"
+    "test/support/*",
+    "lib/cache/sandbox.ex",
+    "lib/cache/sandbox_registry.ex"
   ],
 
   "terminal_options": {
