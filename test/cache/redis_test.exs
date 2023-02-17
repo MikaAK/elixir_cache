@@ -41,7 +41,7 @@ defmodule Cache.RedisTest do
     end
   end
 
-  describe "&hash_get/3" do
+  describe "&hash_get/2" do
     setup :put_hash_key
 
     test "retrieve's and decodes a value from a hash", %{key: key} do
@@ -49,7 +49,7 @@ defmodule Cache.RedisTest do
     end
   end
 
-  describe "&hash_delete/3" do
+  describe "&hash_delete/2" do
     setup :put_hash_key
 
     test "deletes a field from a hash", %{key: key} do
@@ -57,7 +57,7 @@ defmodule Cache.RedisTest do
     end
   end
 
-  describe "&hash_values/3" do
+  describe "&hash_values/1" do
     setup :put_hash_key
 
     test "retrieves and decodes values from a hash", %{key: key} do
@@ -65,7 +65,7 @@ defmodule Cache.RedisTest do
     end
   end
 
-  describe "&hash_set_many/3" do
+  describe "&hash_set_many/1" do
     test "sets many keys", %{test: test} do
       test_key_1 = test_key(test, "1")
       test_key_2 = test_key(test, "2")
@@ -78,7 +78,7 @@ defmodule Cache.RedisTest do
     end
   end
 
-  describe "&hash_get_all/3" do
+  describe "&hash_get_all/1" do
     setup :put_hash_key
 
     test "gets complete hash by key", %{key: key} do
