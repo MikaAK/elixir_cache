@@ -101,8 +101,7 @@ defmodule Cache.Redis do
 
   @impl Cache
   def put(pool_name, key, ttl, value, opts \\ []) do
-    with {:ok, "OK"} <-
-           command(pool_name, redis_set_command(pool_name, key, ttl, value), opts) do
+    with {:ok, "OK"} <- command(pool_name, redis_set_command(pool_name, key, ttl, value), opts) do
       :ok
     end
   end
@@ -216,25 +215,33 @@ defmodule Cache.Redis do
 
   def command(pool_name, command, opts \\ []) do
     :poolboy.transaction(pool_name, fn pid ->
-      Redix.command(pid, command, opts)
+      pid |> Redix.command(command, opts) |> handle_response
     end)
   end
 
   def command!(pool_name, command, opts \\ []) do
     :poolboy.transaction(pool_name, fn pid ->
-      Redix.command!(pid, command, opts)
+      pid |> Redix.command!(command, opts) |> handle_response
     end)
   end
 
   def pipeline(pool_name, commands, opts \\ []) do
     :poolboy.transaction(pool_name, fn pid ->
-      Redix.pipeline(pid, commands, opts)
+      pid |> Redix.pipeline(commands, opts) |> handle_response
     end)
   end
 
   def pipeline!(pool_name, commands, opts \\ []) do
     :poolboy.transaction(pool_name, fn pid ->
-      Redix.pipeline!(pid, commands, opts)
+      pid |> Redix.pipeline!(commands, opts) |> handle_response
     end)
   end
+
+  defp handle_response({:ok, "OK"}), do: :ok
+  defp handle_response({:ok, _} = res), do: res
+  defp handle_response({:error, %Redix.ConnectionError{reason: reason}}) do
+    {:error, ErrorMessage.service_unavailable("redis connection errored because: #{reason}")}
+  end
+
+  defp handle_response({:error, _} = res), do: res
 end
