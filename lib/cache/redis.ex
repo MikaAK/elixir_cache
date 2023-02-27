@@ -137,6 +137,8 @@ defmodule Cache.Redis do
   end
 
   def hash_get(pool_name, key, field, opts) do
+    field = TermEncoder.encode(field, opts[:compression_level])
+
     with {:ok, value} when not is_nil(value) <-
            command(pool_name, ["HGET", cache_key(pool_name, key), field], opts) do
       {:ok, TermEncoder.decode(value)}
@@ -148,8 +150,8 @@ defmodule Cache.Redis do
       hash =
         data
         |> Enum.chunk_every(2)
-        |> Map.new(fn [key, value] ->
-          {TermEncoder.decode(key), TermEncoder.decode(value)}
+        |> Map.new(fn [field, value] ->
+          {TermEncoder.decode(field), TermEncoder.decode(value)}
         end)
 
       {:ok, hash}
@@ -157,6 +159,7 @@ defmodule Cache.Redis do
   end
 
   def hash_set(pool_name, key, field, value, opts) do
+    field = TermEncoder.encode(field, opts[:compression_level])
     value = TermEncoder.encode(value, opts[:compression_level])
 
     command(pool_name, ["HSET", cache_key(pool_name, key), field, value], opts)
@@ -164,13 +167,18 @@ defmodule Cache.Redis do
 
   def hash_set_many(pool_name, key_values, ttl, opts) do
     commands =
-      Enum.map(key_values, fn {key, key_values} ->
-        key_values =
-          Enum.map(key_values, fn {key, value} ->
-            {key, TermEncoder.encode(value, opts[:compression_level])}
+      Enum.map(key_values, fn {key, field_values} ->
+        field_values =
+          field_values
+          |> Enum.map(fn {field, value} ->
+            [
+              TermEncoder.encode(field, opts[:compression_level]),
+              TermEncoder.encode(value, opts[:compression_level])
+            ]
           end)
+          |> List.flatten()
 
-        ["HSET", cache_key(pool_name, key) | key_values]
+        ["HSET", cache_key(pool_name, key) | field_values]
       end)
 
     expiries =
@@ -186,11 +194,19 @@ defmodule Cache.Redis do
   end
 
   def hash_delete(pool_name, key, field, opts) do
+    field = TermEncoder.encode(field, opts[:compression_level])
     command(pool_name, ["HDEL", cache_key(pool_name, key), field], opts)
   end
 
   def hash_values(pool_name, key, opts) do
-    command(pool_name, ["HVALS", cache_key(pool_name, key)], opts)
+    with {:ok, data} <- command(pool_name, ["HVALS", cache_key(pool_name, key)], opts) do
+      values =
+        Enum.map(data, fn value ->
+          TermEncoder.decode(value)
+        end)
+
+      {:ok, values}
+    end
   end
 
   defp cache_key(pool_name, key) do
@@ -199,25 +215,33 @@ defmodule Cache.Redis do
 
   def command(pool_name, command, opts \\ []) do
     :poolboy.transaction(pool_name, fn pid ->
-      Redix.command(pid, command, opts)
+      pid |> Redix.command(command, opts) |> handle_response
     end)
   end
 
   def command!(pool_name, command, opts \\ []) do
     :poolboy.transaction(pool_name, fn pid ->
-      Redix.command!(pid, command, opts)
+      pid |> Redix.command!(command, opts) |> handle_response
     end)
   end
 
   def pipeline(pool_name, commands, opts \\ []) do
     :poolboy.transaction(pool_name, fn pid ->
-      Redix.pipeline(pid, commands, opts)
+      pid |> Redix.pipeline(commands, opts) |> handle_response
     end)
   end
 
   def pipeline!(pool_name, commands, opts \\ []) do
     :poolboy.transaction(pool_name, fn pid ->
-      Redix.pipeline!(pid, commands, opts)
+      pid |> Redix.pipeline!(commands, opts) |> handle_response
     end)
   end
+
+  defp handle_response({:ok, "OK"}), do: :ok
+  defp handle_response({:ok, _} = res), do: res
+  defp handle_response({:error, %Redix.ConnectionError{reason: reason}}) do
+    {:error, ErrorMessage.service_unavailable("redis connection errored because: #{reason}")}
+  end
+
+  defp handle_response({:error, _} = res), do: res
 end

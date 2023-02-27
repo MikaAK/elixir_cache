@@ -4,7 +4,7 @@ defmodule CacheSandboxTest do
   defmodule TestCache do
     use Cache,
       adapter: Cache.Redis,
-      name: :test_cache_redis,
+      name: :test_cache_sandbox,
       opts: [uri: "redis://localhost:6379"],
       sandbox?: Mix.env() === :test
   end
