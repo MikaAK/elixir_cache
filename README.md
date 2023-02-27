@@ -59,7 +59,18 @@ These adapter when used will add extra commands to your cache module.
 
 
 ## Sandboxing
-Our cache config accepts a `sandbox?: boolean`, in sanbox mode, the `Cache.Sandbox` adapter will be used which is just a simple Agent cache which is unique to the root process. All subprocesses will also have access to the same cache but it will be isolated by root process. This means in test mode, each process has it's own cache and is isolated from other tests, allowing you to run all your tests asynchronously
+Our cache config accepts a `sandbox?: boolean`. In sandbox mode, the `Cache.Sandbox` adapter will be used, which is just a simple Agent cache unique to the root process. The `Cache.SandboxRegistry` is responsible for registering test processes to a
+unique instance of the Sandbox adapter cache. This makes it safe in test mode to run all your tests asynchronously!
+
+For test isolation via the `Cache.SandboxRegistry` to work, you must start the registry in your setup, or your test_helper.exs:
+
+```elixir
+# test/test_helper.exs
+
++ Cache.SandboxRegistry.start_link()
+ExUnit.start()
+
+```
 
 ## Creating Adapters
 Adapters are very easy to create in this model and are basically just a module that implement the `@behaviour Cache`

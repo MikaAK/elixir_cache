@@ -58,7 +58,7 @@ defmodule Cache.ETS do
   @impl Cache
   def child_spec({cache_name, opts}) do
     %{
-      id: "#{cache_name}_anana_cache_ets",
+      id: "#{cache_name}_elixir_cache_ets",
       start: {Cache.ETS, :start_link, [Keyword.put(opts, :table_name, cache_name)]}
     }
   end
