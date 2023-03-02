@@ -221,7 +221,7 @@ defmodule Cache.Redis do
 
   def command!(pool_name, command, opts \\ []) do
     :poolboy.transaction(pool_name, fn pid ->
-      pid |> Redix.command!(command, opts) |> handle_response
+      Redix.command!(pid, command, opts)
     end)
   end
 
@@ -233,7 +233,7 @@ defmodule Cache.Redis do
 
   def pipeline!(pool_name, commands, opts \\ []) do
     :poolboy.transaction(pool_name, fn pid ->
-      pid |> Redix.pipeline!(commands, opts) |> handle_response
+      Redix.pipeline!(pid, commands, opts)
     end)
   end
 
