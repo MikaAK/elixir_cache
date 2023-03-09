@@ -25,7 +25,6 @@ end
 
 The docs can be found at <https://hexdocs.pm/elixir_cache>.
 
-
 ## Usage
 ```elixir
 defmodule MyModule do
@@ -86,3 +85,58 @@ child_spec({cache_name, cache_opts})
 ```
 
 `Cache.ETS` is probably the easiest adapter to follow as a guide as it's a simple `Task`
+
+## Runtime Configuration
+
+Adapter configuration can also be specified at runtime. These options are first passed to the adapter
+child_spec when starting the adapter and then passed to all runtime function calls.
+
+For example:
+
+```elixir
+  # Configure with Module Function
+  defmodule Cache.Example do
+    use Cache,
+      adapter: Cache.Redis,
+      name: :test_cache_redis,
+      opts: {Cache.Example, :opts, []}
+
+    def opts, do: [host: "localhost", port: 6379]
+  end
+
+  # Configure with callback function
+  defmodule Cache.Example do
+    use Cache,
+      adapter: Cache.Redis,
+      name: :test_cache_redis,
+      opts: &Cache.Example.opts/0
+
+    def opts, do: [host: "localhost", port: 6379]
+  end
+
+  # Fetch from application config
+  # config :elixir_cache, Cache.Example, []
+  defmodule Cache.Example do
+    use Cache,
+      adapter: Cache.Redis,
+      name: :test_cache_redis,
+      opts: :elixir_cache
+  end
+
+  # Fetch from application config
+  # config :elixir_cache, :cache_opts, []
+  defmodule Cache.Example do
+    use Cache,
+      adapter: Cache.Redis,
+      name: :test_cache_redis,
+      opts: {:elixir_cache, :cache_opts}
+  end
+```
+
+Runtime options can be configured in one of the following formats:
+
+* `{module, function, args}` - Module, function, args
+* `{application_name, key}` - Application name. This is called as `Application.fetch_env!(application_name, key)`.
+* `application_name` - Application name as an atom. This is called as `Application.fetch_env!(application_name, cache_module})`.
+* `function` - Zero arity callback function. For eg. `&YourModule.options/0`
+* `[key: value_type]` - Keyword list of options.

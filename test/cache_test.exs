@@ -80,4 +80,87 @@ defmodule CacheTest do
       end
     end
   end
+
+  defmodule TestCache.RedisRuntimeMFA do
+    use Cache,
+      adapter: Cache.Redis,
+      name: :test_cache_redis,
+      opts: {TestCache.RedisRuntimeMFA, :opts, []}
+
+    def opts, do: [host: "localhost", port: 6379]
+  end
+
+  defmodule TestCache.RedisRuntimeCallback do
+    use Cache,
+      adapter: Cache.Redis,
+      name: :test_cache_redis,
+      opts: &TestCache.RedisRuntimeCallback.opts/0
+
+    def opts, do: [host: "localhost", port: 6379]
+  end
+
+  describe "&adapter_options/0: " do
+    test "returns options from module function" do
+      assert [host: "localhost", port: 6379] = TestCache.RedisRuntimeMFA.adapter_options()
+    end
+
+    test "returns options from callback function" do
+      assert [host: "localhost", port: 6379] = TestCache.RedisRuntimeCallback.adapter_options()
+    end
+
+    test "returns application env config with name" do
+      options = [host: "localhost", port: 6379]
+
+      Application.put_env(:elixir_cache, TestCache.RedisRuntimeAppEnv, options)
+
+      defmodule TestCache.RedisRuntimeAppEnv do
+        use Cache,
+          adapter: Cache.Redis,
+          name: :test_cache_redis,
+          opts: :elixir_cache
+      end
+
+      assert ^options = TestCache.RedisRuntimeAppEnv.adapter_options()
+    end
+
+    test "returns application env config with name and key" do
+      options = [host: "localhost", port: 6379]
+
+      Application.put_env(:elixir_cache, :cache, options)
+
+      defmodule TestCache.RedisRuntimeAppEnvKey do
+        use Cache,
+          adapter: Cache.Redis,
+          name: :test_cache_redis,
+          opts: {:elixir_cache, :cache}
+      end
+
+      assert ^options = TestCache.RedisRuntimeAppEnvKey.adapter_options()
+    end
+
+    test "raises when opts options format is invalid" do
+      assert_raise ArgumentError, ~r/Bad option in adapter module TestCache.RedisRuntimeCallback!/, fn ->
+        Code.compile_string("""
+        defmodule TestCache.RedisRuntimeCallback do
+          use Cache,
+            adapter: Cache.Redis,
+            name: :test_cache_redis,
+            opts: 1234
+        end
+        """)
+      end
+    end
+
+    test "raises when no option passed" do
+      assert_raise ArgumentError, ~r/Bad option in adapter module TestCache.RedisRuntimeCallback!/, fn ->
+        Code.compile_string("""
+        defmodule TestCache.RedisRuntimeCallback do
+          use Cache,
+            adapter: Cache.Redis,
+            name: :test_cache_redis
+        end
+        """)
+      end
+    end
+  end
 end
