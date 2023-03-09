@@ -44,10 +44,48 @@ defmodule Cache do
         raise "Must supply a cache name for #{__MODULE__}"
       end
 
-      adapter_opts = if opts[:sandbox?], do: [], else: opts[:opts]
+      pre_check_runtime_options = fn
+        {_, _, _} = mfa ->
+          mfa
 
-      @adapter_opts NimbleOptions.validate!(adapter_opts, @cache_adapter.opts_definition())
-      @compression_level @adapter_opts[:compression_level]
+        {_, _} = app_config ->
+          app_config
+
+        fun when is_function(fun, 0) ->
+          fun
+
+        app_name when is_atom(app_name) and not is_nil(app_name) ->
+          app_name
+
+        val ->
+          raise ArgumentError, """
+          Bad option in adapter module #{inspect(__MODULE__)}!
+
+          Expected one of the following:
+
+            * `{module, function, args}` - Module, function, args
+            * `{application_name, key}` - Application name. This is called as `Application.fetch_env!(application_name, key)`.
+            * `application_name` - Application name as an atom. This is called as `Application.fetch_env!(application_name, #{inspect(__MODULE__)})`.
+            * `function` - Zero arity callback function. For eg. `&YourModule.options/0`
+            * `[key: value_type]` - Keyword list of options.
+
+          Got: #{inspect(val)}
+          """
+      end
+
+      check_adapter_opts = fn
+        adapter_opts when is_list(adapter_opts) ->
+          NimbleOptions.validate!(adapter_opts, @cache_adapter.opts_definition())
+
+        adapter_opts ->
+          pre_check_runtime_options.(adapter_opts)
+
+      end
+
+      adapter_opts = if opts[:sandbox?], do: [], else: check_adapter_opts.(opts[:opts])
+
+      @adapter_opts adapter_opts
+      @compression_level if is_list(@adapter_opts), do: @adapter_opts[:compression_level]
 
       if macro_exported?(unquote(opts[:adapter]), :__using__, 1) do
         use unquote(opts[:adapter])
@@ -56,22 +94,30 @@ defmodule Cache do
       def cache_name, do: @cache_name
       def cache_adapter, do: @cache_adapter
 
+      def adapter_options, do: adapter_options!(@adapter_opts)
+
+      defp adapter_options!({module, fun, args}), do: apply(module, fun, args)
+      defp adapter_options!({app, key}), do: Application.fetch_env!(app, key)
+      defp adapter_options!(app_name) when is_atom(app_name), do: Application.fetch_env!(app_name, __MODULE__)
+      defp adapter_options!(fun) when is_function(fun, 0), do: fun.()
+      defp adapter_options!(options) when is_list(options), do: options
+
       def child_spec(_) do
-        @cache_adapter.child_spec({@cache_name, @adapter_opts})
+        @cache_adapter.child_spec({@cache_name, adapter_options()})
       end
 
       def put(key, ttl \\ nil, value) do
         value = Cache.TermEncoder.encode(value, @compression_level)
         key = maybe_sandbox_key(key)
 
-        @cache_adapter.put(@cache_name, key, ttl, value, @adapter_opts)
+        @cache_adapter.put(@cache_name, key, ttl, value, adapter_options())
       end
 
       def get(key) do
         key = maybe_sandbox_key(key)
 
         with {:ok, value} when not is_nil(value) <-
-               @cache_adapter.get(@cache_name, key, @adapter_opts) do
+               @cache_adapter.get(@cache_name, key, adapter_options()) do
           {:ok, Cache.TermEncoder.decode(value)}
         end
       end
@@ -79,7 +125,7 @@ defmodule Cache do
       def delete(key) do
         key = maybe_sandbox_key(key)
 
-        @cache_adapter.delete(@cache_name, key, @adapter_opts)
+        @cache_adapter.delete(@cache_name, key, adapter_options())
       end
 
       if @cache_opts[:sandbox?] do
