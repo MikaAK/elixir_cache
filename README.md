@@ -137,6 +137,6 @@ Runtime options can be configured in one of the following formats:
 
 * `{module, function, args}` - Module, function, args
 * `{application_name, key}` - Application name. This is called as `Application.fetch_env!(application_name, key)`.
-* `application_name` - Application name as an atom. This is called as `Application.fetch_env!(application_name, #{inspect(__MODULE__)})`.
+* `application_name` - Application name as an atom. This is called as `Application.fetch_env!(application_name, cache_module})`.
 * `function` - Zero arity callback function. For eg. `&YourModule.options/0`
 * `[key: value_type]` - Keyword list of options.
