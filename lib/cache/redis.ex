@@ -5,21 +5,31 @@ defmodule Cache.Redis do
       doc: "The connection uri to redis",
       required: true
     ],
+
     size: [
       type: :pos_integer,
       doc: "The amount of workers in the pool"
     ],
+
     max_overflow: [
       type: :pos_integer,
       doc: "The amount of max overflow the pool can handle"
+    ],
+
+    strategy: [
+      type: {:in, [:fifo, :lifo]},
+      doc: "The type of queue to use for poolboy"
     ]
   ]
 
   @moduledoc """
   This module interacts with redis using a pool of connections
+
+  ## Options
+  #{NimbleOptions.docs(@opts_definition)}
   """
 
-  alias Cache.TermEncoder
+  alias Cache.Redis
 
   @behaviour Cache
 
@@ -95,27 +105,27 @@ defmodule Cache.Redis do
       worker_module: Cache.Redis,
       size: opts[:size],
       max_overflow: opts[:max_overflow],
-      strategy: :fifo
+      strategy: opts[:strategy] || :fifo
     ]
   end
 
   @impl Cache
   def put(pool_name, key, ttl, value, opts \\ []) do
-    with {:ok, "OK"} <- command(pool_name, redis_set_command(pool_name, key, ttl, value), opts) do
+    with {:ok, "OK"} <- Redis.Global.command(pool_name, redis_set_command(pool_name, key, ttl, value), opts) do
       :ok
     end
   end
 
   defp redis_set_command(pool_name, key, _ttl, nil) do
-    ["DEL", cache_key(pool_name, key)]
+    ["DEL", Redis.Global.cache_key(pool_name, key)]
   end
 
   defp redis_set_command(pool_name, key, nil, value) do
-    ["SET", cache_key(pool_name, key), value]
+    ["SET", Redis.Global.cache_key(pool_name, key), value]
   end
 
   defp redis_set_command(pool_name, key, ttl, value) do
-    key = cache_key(pool_name, key)
+    key = Redis.Global.cache_key(pool_name, key)
 
     ["SETEX", key, ms_to_nearest_sec(ttl), value]
   end
@@ -126,122 +136,35 @@ defmodule Cache.Redis do
 
   @impl Cache
   def get(pool_name, key, opts \\ []) do
-    command(pool_name, ["GET", cache_key(pool_name, key)], opts)
+    Redis.Global.command(pool_name, ["GET", Redis.Global.cache_key(pool_name, key)], opts)
   end
 
   @impl Cache
   def delete(pool_name, key, opts \\ []) do
-    with {:ok, _} <- command(pool_name, ["DEL", cache_key(pool_name, key)], opts) do
+    with {:ok, _} <- Redis.Global.command(pool_name, ["DEL", Redis.Global.cache_key(pool_name, key)], opts) do
       :ok
     end
   end
 
-  def hash_get(pool_name, key, field, opts) do
-    field = TermEncoder.encode(field, opts[:compression_level])
+  defdelegate pipeline(pool_name, command, opts \\ []), to: Redis.Global
+  defdelegate pipeline!(pool_name, command, opts \\ []), to: Redis.Global
+  defdelegate command(pool_name, command, opts \\ []), to: Redis.Global
+  defdelegate command!(pool_name, command, opts \\ []), to: Redis.Global
 
-    with {:ok, value} when not is_nil(value) <-
-           command(pool_name, ["HGET", cache_key(pool_name, key), field], opts) do
-      {:ok, TermEncoder.decode(value)}
-    end
-  end
+  defdelegate hash_get(pool_name, key, field, opts \\ []), to: Redis.Hash
+  defdelegate hash_get_all(pool_name, key, opts \\ []), to: Redis.Hash
+  defdelegate hash_set(pool_name, key, field, value, opts \\ []), to: Redis.Hash
+  defdelegate hash_set_many(pool_name, key_values, ttl, opts \\ []), to: Redis.Hash
+  defdelegate hash_delete(pool_name, key, field, opts \\ []), to: Redis.Hash
+  defdelegate hash_values(pool_name, key, opts \\ []), to: Redis.Hash
 
-  def hash_get_all(pool_name, key, opts) do
-    with {:ok, data} <- command(pool_name, ["HGETALL", cache_key(pool_name, key)], opts) do
-      hash =
-        data
-        |> Enum.chunk_every(2)
-        |> Map.new(fn [field, value] ->
-          {TermEncoder.decode(field), TermEncoder.decode(value)}
-        end)
+  defdelegate json_get(pool_name, key, path, opts \\ []), to: Redis.JSON, as: :get
+  defdelegate json_set(pool_name, key, path, value, opts \\ []), to: Redis.JSON, as: :set
+  defdelegate json_delete(pool_name, key, path, opts \\ []), to: Redis.JSON, as: :delete
+  defdelegate json_incr(pool_name, key, path, opts \\ []), to: Redis.JSON, as: :incr
+  defdelegate json_clear(pool_name, key, path, opts \\ []), to: Redis.JSON, as: :clear
 
-      {:ok, hash}
-    end
-  end
-
-  def hash_set(pool_name, key, field, value, opts) do
-    field = TermEncoder.encode(field, opts[:compression_level])
-    value = TermEncoder.encode(value, opts[:compression_level])
-
-    command(pool_name, ["HSET", cache_key(pool_name, key), field, value], opts)
-  end
-
-  def hash_set_many(pool_name, key_values, ttl, opts) do
-    commands =
-      Enum.map(key_values, fn {key, field_values} ->
-        field_values =
-          field_values
-          |> Enum.map(fn {field, value} ->
-            [
-              TermEncoder.encode(field, opts[:compression_level]),
-              TermEncoder.encode(value, opts[:compression_level])
-            ]
-          end)
-          |> List.flatten()
-
-        ["HSET", cache_key(pool_name, key) | field_values]
-      end)
-
-    expiries =
-      if ttl do
-        Enum.map(key_values, fn {key, _} ->
-          ["PEXPIRE", cache_key(pool_name, key), ttl]
-        end)
-      else
-        []
-      end
-
-    pipeline(pool_name, commands ++ expiries, opts)
-  end
-
-  def hash_delete(pool_name, key, field, opts) do
-    field = TermEncoder.encode(field, opts[:compression_level])
-    command(pool_name, ["HDEL", cache_key(pool_name, key), field], opts)
-  end
-
-  def hash_values(pool_name, key, opts) do
-    with {:ok, data} <- command(pool_name, ["HVALS", cache_key(pool_name, key)], opts) do
-      values =
-        Enum.map(data, fn value ->
-          TermEncoder.decode(value)
-        end)
-
-      {:ok, values}
-    end
-  end
-
-  defp cache_key(pool_name, key) do
-    "#{pool_name}:#{key}"
-  end
-
-  def command(pool_name, command, opts \\ []) do
-    :poolboy.transaction(pool_name, fn pid ->
-      pid |> Redix.command(command, opts) |> handle_response
-    end)
-  end
-
-  def command!(pool_name, command, opts \\ []) do
-    :poolboy.transaction(pool_name, fn pid ->
-      Redix.command!(pid, command, opts)
-    end)
-  end
-
-  def pipeline(pool_name, commands, opts \\ []) do
-    :poolboy.transaction(pool_name, fn pid ->
-      pid |> Redix.pipeline(commands, opts) |> handle_response
-    end)
-  end
-
-  def pipeline!(pool_name, commands, opts \\ []) do
-    :poolboy.transaction(pool_name, fn pid ->
-      Redix.pipeline!(pid, commands, opts)
-    end)
-  end
-
-  defp handle_response({:ok, "OK"}), do: :ok
-  defp handle_response({:ok, _} = res), do: res
-  defp handle_response({:error, %Redix.ConnectionError{reason: reason}}) do
-    {:error, ErrorMessage.service_unavailable("redis connection errored because: #{reason}")}
-  end
-
-  defp handle_response({:error, _} = res), do: res
+  defdelegate json_array_append(pool_name, key, path, value_or_values, opts \\ []),
+    to: Redis.JSON,
+    as: :array_append
 end

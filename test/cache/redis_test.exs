@@ -14,8 +14,6 @@ defmodule Cache.RedisTest do
       opts: [uri: "redis://localhost:6379"]
   end
 
-  alias __MODULE__.RedisCache
-
   setup %{test: test} do
     start_supervised!({Cache, [RedisCache]})
 

@@ -24,6 +24,9 @@ defmodule Cache.ETS do
 
   @moduledoc """
   ETS adapter so that we can use ets as a cache
+
+  ## Options
+  #{NimbleOptions.docs(@opts_definition)}
   """
 
   use Task, restart: :permanent
