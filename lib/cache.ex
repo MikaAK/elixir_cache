@@ -100,7 +100,7 @@ defmodule Cache do
       defp adapter_options!({app, key}), do: Application.fetch_env!(app, key)
       defp adapter_options!(app_name) when is_atom(app_name), do: Application.fetch_env!(app_name, __MODULE__)
       defp adapter_options!(fun) when is_function(fun, 0), do: fun.()
-      defp adapter_options!(options) when is_list(options), do: options
+      defp adapter_options!(options), do: options
 
       def child_spec(_) do
         @cache_adapter.child_spec({@cache_name, adapter_options()})
