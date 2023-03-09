@@ -83,6 +83,59 @@ defmodule Cache.Sandbox do
     end)
   end
 
+  def json_get(cache_name, key, value, opts \\ [])
+
+  def json_get(cache_name, key, nil, _opts) do
+    Agent.get(cache_name, fn state -> state[to_string(key)] end)
+  end
+
+  def json_get(cache_name, key, path, _opts) do
+    Agent.get(cache_name, fn state -> get_in(state, format_path([key | path])) end)
+  end
+
+  def json_set(cache_name, key, path, value, opts \\ [])
+
+  def json_set(cache_name, key, path, value, _opts) do
+    Agent.update(cache_name, fn state -> put_in(state, format_path([key | path]), value) end)
+  end
+
+  def json_delete(cache_name, key, path, _opts) do
+    Agent.update(cache_name, fn state ->
+      {_val, state} = pop_in(state, format_path([key | path]))
+
+      state
+    end)
+  end
+
+  def json_incr(cache_name, key, path, _opts) do
+    Agent.update(cache_name, fn state ->
+      update_in(state, format_path([key | path]), &(&1 + 1))
+    end)
+  end
+
+  def json_clear(cache_name, key, path, opts) do
+    json_delete(cache_name, key, path, opts)
+  end
+
+  def json_array_append(cache_name, key, path, value, opts \\ [])
+
+  def json_array_append(cache_name, key, path, value, opts) when not is_list(value) do
+    json_array_append(cache_name, key, path, [value], opts)
+  end
+
+  def json_array_append(cache_name, key, path, values, _opts) do
+    Agent.update(cache_name, fn state ->
+      update_in(state, format_path([key | path]), &(&1 ++ values))
+    end)
+  end
+
+  defp format_path(path) do
+    Enum.map(path, fn
+      index when is_integer(index) -> Access.at(index)
+      path -> to_string(path)
+    end)
+  end
+
   def pipeline(_cache_name, _commands, _opts) do
     raise "Not Implemented"
   end

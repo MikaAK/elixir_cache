@@ -61,4 +61,23 @@ defmodule Cache.TermEncoder do
   defp maybe_decode_binary_struct_error(value) do
     value
   end
+
+  def decode_json(json) when is_binary(json) do
+    case Jason.decode(json) do
+      {:ok, data} -> data
+      {:error, _} -> json
+    end
+  end
+
+  def decode_json(value) do
+    value
+  end
+
+  def encode_json(value) when is_binary(value) do
+    value
+  end
+
+  def encode_json(value) do
+    Jason.encode!(value)
+  end
 end

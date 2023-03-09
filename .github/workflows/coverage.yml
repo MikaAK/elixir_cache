@@ -7,8 +7,8 @@ jobs:
     runs-on: ubuntu-latest
 
     services:
-      redis:
-        image: redis
+      redis-stack:
+        image: redis/redis-stack
 
         options: >-
           --health-cmd "redis-cli ping"
