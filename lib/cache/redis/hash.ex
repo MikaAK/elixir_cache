@@ -1,5 +1,5 @@
 defmodule Cache.Redis.Hash do
-  alias Cache.Redis
+  alias Cache.{Redis, TermEncoder}
 
   def hash_get(pool_name, key, field, opts) do
     field = TermEncoder.encode(field, opts[:compression_level])
