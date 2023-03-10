@@ -1,4 +1,8 @@
 defmodule Cache.Redis.Hash do
+  @moduledoc """
+  Contains functions for interfacing with redis hash functions
+  """
+
   alias Cache.{Redis, TermEncoder}
 
   def hash_get(pool_name, key, field, opts) do

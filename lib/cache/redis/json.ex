@@ -1,6 +1,6 @@
 defmodule Cache.Redis.JSON do
   @moduledoc """
-  This module helps to integrate Redis Stack commands into Cache.Redis
+  Contains functions for interfacing with redis JSON functions
   """
 
   alias Cache.{Redis, TermEncoder}

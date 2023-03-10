@@ -1,4 +1,8 @@
 defmodule Cache.Redis.Global do
+  @moduledoc """
+  Contains General functions for interfacing with redis
+  """
+
   def cache_key(pool_name, key) do
     "#{pool_name}:#{key}"
   end
