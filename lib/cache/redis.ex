@@ -82,6 +82,7 @@ defmodule Cache.Redis do
   @impl Cache
   def opts_definition, do: @opts_definition
 
+  @impl Cache
   def start_link(opts) do
     if !opts[:uri] do
       raise "Must supply a redis uri"
