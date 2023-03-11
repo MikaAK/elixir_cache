@@ -1,3 +1,6 @@
+# 0.2.1
+- Adds support for application configuration and runtime options.
+
 # 0.2.0
 - Stop redis connection errors from crashing the app
 - Fix hash functions for `Cache.Redis`
