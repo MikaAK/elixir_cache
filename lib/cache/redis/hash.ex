@@ -27,6 +27,21 @@ defmodule Cache.Redis.Hash do
     end
   end
 
+  def hash_get_many(pool_name, key_fields, opts) do
+    commands =
+      Enum.map(key_fields, fn {key, fields} ->
+        fields = Enum.map(fields, &maybe_encode_hash_field(&1, opts[:compression_level]))
+
+        ["HMGET", Redis.Global.cache_key(pool_name, key)] ++ fields
+      end)
+
+    with {:ok, data} <- Redis.Global.pipeline(pool_name, commands, opts) do
+      values = Enum.map(data, fn values -> Enum.map(values, &TermEncoder.decode/1) end)
+
+      {:ok, values}
+    end
+  end
+
   def hash_set(pool_name, key, field, value, opts) do
     field = maybe_encode_hash_field(field, opts[:compression_level])
     value = TermEncoder.encode(value, opts[:compression_level])

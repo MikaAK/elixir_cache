@@ -45,6 +45,10 @@ defmodule Cache.Redis do
         @cache_adapter.hash_get_all(@cache_name, key, @adapter_opts)
       end
 
+      def hash_get_many(key_fields) do
+        @cache_adapter.hash_get_many(@cache_name, key_fields, @adapter_opts)
+      end
+
       def hash_set(key, field, value) do
         @cache_adapter.hash_set(@cache_name, key, field, value, @adapter_opts)
       end
@@ -154,6 +158,7 @@ defmodule Cache.Redis do
 
   defdelegate hash_get(pool_name, key, field, opts \\ []), to: Redis.Hash
   defdelegate hash_get_all(pool_name, key, opts \\ []), to: Redis.Hash
+  defdelegate hash_get_many(pool_name, key_fields, opts \\ []), to: Redis.Hash
   defdelegate hash_set(pool_name, key, field, value, opts \\ []), to: Redis.Hash
   defdelegate hash_set_many(pool_name, key_values, ttl, opts \\ []), to: Redis.Hash
   defdelegate hash_delete(pool_name, key, field, opts \\ []), to: Redis.Hash

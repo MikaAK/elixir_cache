@@ -14,6 +14,14 @@ defmodule Cache.RedisTest do
       opts: [uri: "redis://localhost:6379"]
   end
 
+  @hash_fields ["field_1", "field_2"]
+  @hash_vals ["value", "value"]
+  @hash_field_vals Enum.zip(@hash_fields, @hash_vals)
+
+  @atom_hash_fields [:a, :b]
+  @atom_hash_vals [1, 2]
+  @atom_hash_field_vals Enum.zip(@atom_hash_fields, @atom_hash_vals)
+
   setup %{test: test} do
     start_supervised!({Cache, [RedisCache]})
 
@@ -50,29 +58,29 @@ defmodule Cache.RedisTest do
   end
 
   describe "&hash_get/2" do
-    setup :put_hash_key
+    setup :put_hash
 
-    test "retrieves and decodes a value from a hash", %{key: key} do
+    test "retrieves and decodes a value from a hash", %{hash: key} do
       assert {:ok, "value"} = RedisCache.hash_get(key, "field_1")
     end
 
-    test "returns nil for missing values", %{key_1: key_1} do
+    test "returns nil for missing values", %{hash: key_1} do
       assert {:ok, nil} = RedisCache.hash_get(key_1, "field_3")
     end
   end
 
   describe "&hash_delete/2" do
-    setup :put_hash_key
+    setup :put_hash
 
-    test "deletes a field from a hash", %{key: key} do
+    test "deletes a field from a hash", %{hash: key} do
       assert {:ok, 1} = RedisCache.hash_delete(key, "field_1")
     end
   end
 
   describe "&hash_values/1" do
-    setup :put_hash_key
+    setup :put_hash
 
-    test "retrieves and decodes values from a hash", %{key: key} do
+    test "retrieves and decodes values from a hash", %{hash: key} do
       assert {:ok, ["value", "value"]} = RedisCache.hash_values(key)
     end
   end
@@ -82,8 +90,8 @@ defmodule Cache.RedisTest do
       test_key_1 = test_key(test, "1")
       test_key_2 = test_key(test, "2")
 
-      set_1 = {test_key_1, [{"field_1", "value"}, {"field_2", "value"}]}
-      set_2 = {test_key_2, [{"field_1", "value"}, {"field_2", "value"}]}
+      set_1 = {test_key_1, @hash_field_vals}
+      set_2 = {test_key_2, @atom_hash_field_vals}
 
       {:ok, [2]} = RedisCache.hash_set_many([set_1])
       {:ok, [0, 2]} = RedisCache.hash_set_many([set_1, set_2])
@@ -91,23 +99,44 @@ defmodule Cache.RedisTest do
   end
 
   describe "&hash_get_all/1" do
-    setup :put_hash_key
+    setup :put_hash
 
-    test "gets complete hash by key", %{key: key} do
+    test "gets complete hash by key", %{hash: key} do
       {:ok, %{"field_1" => "value", "field_2" => "value"}} = RedisCache.hash_get_all(key)
+    end
+  end
+
+  describe "&hash_get_many/1" do
+    setup [:put_hash, :put_hash_with_atom_fields]
+
+    test "gets many fields from a key", %{hash: key_1} do
+      {:ok, [@hash_vals]} = RedisCache.hash_get_many([{key_1, @hash_fields}])
+    end
+
+    test "gets many fields from many keys", %{hash: key_1, atom_hash: key_2} do
+      {:ok, [@atom_hash_vals, @hash_vals]} =
+        RedisCache.hash_get_many([{key_2, @atom_hash_fields}, {key_1, @hash_fields}])
+    end
+
+    test "handles missing values", %{hash: key_1, atom_hash: key_2} do
+      {:ok, [[1, nil, 2], @hash_vals]} =
+        RedisCache.hash_get_many([{key_2, [:a, :c, :b]}, {key_1, @hash_fields}])
     end
   end
 
   defp test_key(test, key), do: "#{test}:#{key}"
 
-  defp put_hash_key(%{test: test}) do
-    test_key = test_key(test, "key")
+  defp put_hash(%{test: test}) do
+    test_key = test_key(test, "hash")
+    {:ok, [2]} = RedisCache.hash_set_many([{test_key, @hash_field_vals}])
 
-    {:ok, [2]} =
-      RedisCache.hash_set_many([
-        {test_key, [{"field_1", "value"}, {"field_2", "value"}]}
-      ])
+    {:ok, hash: test_key}
+  end
 
-    {:ok, key: test_key}
+  defp put_hash_with_atom_fields(%{test: test}) do
+    test_key = test_key(test, "atom_hash")
+    {:ok, [2]} = RedisCache.hash_set_many([{test_key, @atom_hash_field_vals}])
+
+    {:ok, atom_hash: test_key}
   end
 end
