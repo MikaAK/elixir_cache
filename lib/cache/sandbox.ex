@@ -48,12 +48,6 @@ defmodule Cache.Sandbox do
     end)
   end
 
-  def scan(cache_name, _scan_opts, _opts \\ []) do
-    Agent.get(cache_name, fn state ->
-      Map.keys(state)
-    end)
-  end
-
   def hash_delete(cache_name, key, hash_key, _opts) do
     Agent.update(cache_name, fn state ->
       Map.update(state, key, %{}, &Map.delete(&1, hash_key))
@@ -115,6 +109,14 @@ defmodule Cache.Sandbox do
   end
 
   def command!(_cache_name, _command, _opts) do
+    raise "Not Implemented"
+  end
+
+  def scan(_cache_name, _scan_opts, _opts \\ []) do
+    raise "Not Implemented"
+  end
+
+  def hash_scan(_cache_name, _key, _scan_opts, _opts \\ []) do
     raise "Not Implemented"
   end
 end

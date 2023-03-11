@@ -65,6 +65,42 @@ defmodule Cache.RedisTest do
     end
   end
 
+  describe "&hash_scan/2" do
+    setup %{test: test} do
+      test_key = test_key(test, "key_hash")
+      field_values = Enum.map(1..100, &{"field_#{&1}", &1})
+      RedisCache.hash_set_many([{test_key, field_values}])
+
+      {:ok, test_key: test_key}
+    end
+
+    test "returns all fields in a hash", %{test_key: test_key} do
+      assert {:ok, elements} = RedisCache.hash_scan(test_key)
+      assert length(elements) === 100
+    end
+
+    test "accepts a match opt", %{test_key: test_key} do
+      scan_opts = [match: "field_*"]
+      assert {:ok, elements} = RedisCache.hash_scan(test_key, scan_opts)
+      assert length(elements) === 100
+
+      scan_opts = [match: "field_1*"]
+      assert {:ok, elements} = RedisCache.hash_scan(test_key, scan_opts)
+      assert length(elements) === 12
+    end
+
+    test "accepts a count opt", %{test_key: test_key} do
+      scan_opts = [count: 100]
+      assert {:ok, elements} = RedisCache.hash_scan(test_key, scan_opts)
+      assert length(elements) === 100
+    end
+
+    test "decodes returned values", %{test_key: test_key} do
+      scan_opts = [match: "field_1"]
+      assert {:ok, [{"field_1", 1}]} = RedisCache.hash_scan(test_key, scan_opts)
+    end
+  end
+
   describe "&hash_set/3" do
     test "encodes fields and values in a hash as binaries", %{test: test} do
       test_key = test_key(test, "key")

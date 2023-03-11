@@ -43,6 +43,17 @@ defmodule Cache.Redis.Global do
       {:ok, keys}
     end
   end
+
+  defguard is_scan_op(operation) when operation in ["HSCAN", "SSCAN", "ZSCAN"]
+
+  def scan_collection(pool_name, operation, key, scan_opts, _opts) when is_scan_op(operation) do
+    match = scan_opts[:match] || "*"
+    count = scan_opts[:count] || @default_scan_count
+    type = scan_opts[:type]
+
+    scan_and_paginate(pool_name, operation, key, 0, match, count, type)
+  end
+
   defp scan_and_paginate(acc \\ [], pool_name, operation, key, cursor, match, count, type) do
     with {:ok, data} <-
            command(
@@ -75,6 +86,11 @@ defmodule Cache.Redis.Global do
   defp redis_scan_command(pool_name, "SCAN", _key, cursor, match, count, type) do
     ["SCAN", cursor, "MATCH", "#{pool_name}:#{match}", "COUNT", count, "TYPE", type]
   end
+
+  defp redis_scan_command(pool_name, operation, key, cursor, match, count, nil) do
+    [operation, "#{pool_name}:#{key}", cursor, "MATCH", match, "COUNT", count]
+  end
+
   defp handle_response({:ok, "OK"}), do: :ok
   defp handle_response({:ok, _} = res), do: res
   defp handle_response({:error, %Redix.ConnectionError{reason: reason}}) do

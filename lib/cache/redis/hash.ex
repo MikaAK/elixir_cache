@@ -5,6 +5,20 @@ defmodule Cache.Redis.Hash do
 
   alias Cache.{Redis, TermEncoder}
 
+  def hash_scan(pool_name, key, scan_opts, opts) do
+    with {:ok, field_values} <-
+           Redis.Global.scan_collection(pool_name, "HSCAN", key, scan_opts, opts) do
+      field_values =
+        field_values
+        |> Stream.chunk_every(2)
+        |> Enum.map(fn [field, value] ->
+          {maybe_decode_hash_field(field), TermEncoder.decode(value)}
+        end)
+
+      {:ok, field_values}
+    end
+  end
+
   def hash_get(pool_name, key, field, opts) do
     field = maybe_encode_hash_field(field, opts[:compression_level])
 
