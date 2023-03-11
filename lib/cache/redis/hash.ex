@@ -56,11 +56,29 @@ defmodule Cache.Redis.Hash do
     end
   end
 
-  def hash_set(pool_name, key, field, value, opts) do
-    field = maybe_encode_hash_field(field, opts[:compression_level])
-    value = TermEncoder.encode(value, opts[:compression_level])
+  def hash_set(pool_name, key, field, value, nil, opts) do
+    Redis.Global.command(
+      pool_name,
+      redis_hset_command(pool_name, key, field, value, opts),
+      opts
+    )
+  end
 
-    Redis.Global.command(pool_name, ["HSET", Redis.Global.cache_key(pool_name, key), field, value], opts)
+  def hash_set(pool_name, key, field, value, ttl, opts) do
+    command = redis_hset_command(pool_name, key, field, value, opts)
+    expire = redis_pexpire_command(pool_name, key, ttl)
+
+    Redis.Global.pipeline(pool_name, [command, expire], opts)
+  end
+
+  defp redis_hset_command(pool_name, key, field, value, opts) do
+    field = maybe_encode_hash_field(field, opts)
+    value = TermEncoder.encode(value, opts[:compression_level])
+    ["HSET", Redis.Global.cache_key(pool_name, key), field, value]
+  end
+
+  defp redis_pexpire_command(pool_name, key, ttl) do
+    ["PEXPIRE", Redis.Global.cache_key(pool_name, key), ttl]
   end
 
   def hash_set_many(pool_name, key_values, ttl, opts) do
@@ -82,7 +100,7 @@ defmodule Cache.Redis.Hash do
     expiries =
       if ttl do
         Enum.map(key_values, fn {key, _} ->
-          ["PEXPIRE", Redis.Global.cache_key(pool_name, key), ttl]
+          redis_pexpire_command(pool_name, key, ttl)
         end)
       else
         []

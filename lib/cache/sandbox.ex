@@ -84,7 +84,7 @@ defmodule Cache.Sandbox do
     end)
   end
 
-  def hash_set(cache_name, key, hash_key, value, _opts) do
+  def hash_set(cache_name, key, hash_key, value, nil, _opts) do
     Agent.update(cache_name, fn state ->
       Map.update(state, key, %{hash_key => value}, &Map.put(&1, hash_key, value))
     end)
