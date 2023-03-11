@@ -72,6 +72,12 @@ ExUnit.start()
 
 ```
 
+Then inside our `setup` for a test we can do:
+
+```elixir
+Cache.SandboxRegistry.start([MyCache, CacheItem])
+```
+
 ## Creating Adapters
 Adapters are very easy to create in this model and are basically just a module that implement the `@behaviour Cache`
 
