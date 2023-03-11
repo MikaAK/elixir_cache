@@ -84,16 +84,43 @@ defmodule Cache.Sandbox do
     end)
   end
 
-  def hash_set(cache_name, key, hash_key, value, nil, _opts) do
+  def hash_set(cache_name, key, field, value, ttl, _opts) do
     Agent.update(cache_name, fn state ->
-      Map.update(state, key, %{hash_key => value}, &Map.put(&1, hash_key, value))
+      put_hash_field_values(state, key, [{field, value}])
     end)
+
+    if ttl do
+      {:ok, [1, 1]}
+    else
+      :ok
+    end
   end
 
-  def hash_set_many(cache_name, key, hash_key_value_tuples, _opts) do
+  def hash_set_many(cache_name, keys_fields_values, ttl, _opts) do
     Agent.update(cache_name, fn state ->
-      Map.put(state, key, Map.new(hash_key_value_tuples))
+      Enum.reduce(keys_fields_values, state, fn {key, fields_values}, acc ->
+        put_hash_field_values(acc, key, fields_values)
+      end)
     end)
+
+    if ttl do
+      command_resps =
+        Enum.map(keys_fields_values, fn {_, fields_values} -> length(fields_values) end)
+
+      expiry_resps = Enum.map(keys_fields_values, fn _ -> 1 end)
+      {:ok, command_resps ++ expiry_resps}
+    else
+      :ok
+    end
+  end
+
+  defp put_hash_field_values(state, key, fields_values) do
+    Map.update(
+      state,
+      key,
+      Map.new(fields_values),
+      &Enum.reduce(fields_values, &1, fn {field, value}, acc -> Map.put(acc, field, value) end)
+    )
   end
 
   def pipeline(_cache_name, _commands, _opts) do

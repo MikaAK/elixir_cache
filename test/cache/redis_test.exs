@@ -124,6 +124,13 @@ defmodule Cache.RedisTest do
     end
   end
 
+  describe "&hash_set/4" do
+    test "sets a field and updates key with a ttl", %{test: test} do
+      test_key = test_key(test, "key")
+      {:ok, [1, 1]} = RedisCache.hash_set(test_key, :field, "value", 1)
+    end
+  end
+
   describe "&hash_get/2" do
     setup :put_hash
 
@@ -152,16 +159,25 @@ defmodule Cache.RedisTest do
     end
   end
 
-  describe "&hash_set_many/1" do
-    test "sets many keys", %{test: test} do
+  describe "&hash_set_many/1 and &hash_set_many/2" do
+    setup %{test: test} do
       test_key_1 = test_key(test, "1")
       test_key_2 = test_key(test, "2")
 
       set_1 = {test_key_1, @hash_field_vals}
       set_2 = {test_key_2, @atom_hash_field_vals}
 
-      {:ok, [2]} = RedisCache.hash_set_many([set_1])
-      {:ok, [0, 2]} = RedisCache.hash_set_many([set_1, set_2])
+      {:ok, set_1: set_1, set_2: set_2}
+    end
+
+    test "sets many keys", %{set_1: set_1, set_2: set_2} do
+      assert {:ok, [2]} = RedisCache.hash_set_many([set_1])
+      assert {:ok, [0, 2]} = RedisCache.hash_set_many([set_1, set_2])
+    end
+
+    test "sets many keys with expiries", %{set_1: set_1, set_2: set_2} do
+      assert {:ok, [2, 1]} = RedisCache.hash_set_many([set_1], 1)
+      assert {:ok, [0, 2, 1, 1]} = RedisCache.hash_set_many([set_1, set_2], 1)
     end
   end
 
