@@ -31,6 +31,16 @@ defmodule Cache.RedisTest do
       test_key = test_key(test, "key")
       {:ok, 1} = RedisCache.hash_set(test_key, "field", "value")
 
+      assert {:ok, ["field", <<value::binary>>]} =
+               Cache.Redis.command(@cache_name, ["HGETALL", "#{@cache_name}:#{test_key}"])
+
+      refute String.valid?(value)
+    end
+
+    test "encodes non-binary hash fields as binaries", %{test: test} do
+      test_key = test_key(test, "key")
+      {:ok, 1} = RedisCache.hash_set(test_key, :field, "value")
+
       assert {:ok, [<<field::binary>>, <<value::binary>>]} =
                Cache.Redis.command(@cache_name, ["HGETALL", "#{@cache_name}:#{test_key}"])
 
@@ -42,8 +52,12 @@ defmodule Cache.RedisTest do
   describe "&hash_get/2" do
     setup :put_hash_key
 
-    test "retrieve's and decodes a value from a hash", %{key: key} do
+    test "retrieves and decodes a value from a hash", %{key: key} do
       assert {:ok, "value"} = RedisCache.hash_get(key, "field_1")
+    end
+
+    test "returns nil for missing values", %{key_1: key_1} do
+      assert {:ok, nil} = RedisCache.hash_get(key_1, "field_3")
     end
   end
 

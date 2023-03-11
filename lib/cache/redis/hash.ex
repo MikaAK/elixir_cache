@@ -6,7 +6,7 @@ defmodule Cache.Redis.Hash do
   alias Cache.{Redis, TermEncoder}
 
   def hash_get(pool_name, key, field, opts) do
-    field = TermEncoder.encode(field, opts[:compression_level])
+    field = maybe_encode_hash_field(field, opts[:compression_level])
 
     with {:ok, value} when not is_nil(value) <-
            Redis.Global.command(pool_name, ["HGET", Redis.Global.cache_key(pool_name, key), field], opts) do
@@ -20,7 +20,7 @@ defmodule Cache.Redis.Hash do
         data
         |> Enum.chunk_every(2)
         |> Map.new(fn [field, value] ->
-          {TermEncoder.decode(field), TermEncoder.decode(value)}
+          {maybe_decode_hash_field(field), TermEncoder.decode(value)}
         end)
 
       {:ok, hash}
@@ -28,7 +28,7 @@ defmodule Cache.Redis.Hash do
   end
 
   def hash_set(pool_name, key, field, value, opts) do
-    field = TermEncoder.encode(field, opts[:compression_level])
+    field = maybe_encode_hash_field(field, opts[:compression_level])
     value = TermEncoder.encode(value, opts[:compression_level])
 
     Redis.Global.command(pool_name, ["HSET", Redis.Global.cache_key(pool_name, key), field, value], opts)
@@ -41,7 +41,7 @@ defmodule Cache.Redis.Hash do
           field_values
           |> Enum.map(fn {field, value} ->
             [
-              TermEncoder.encode(field, opts[:compression_level]),
+              maybe_encode_hash_field(field, opts[:compression_level]),
               TermEncoder.encode(value, opts[:compression_level])
             ]
           end)
@@ -63,7 +63,7 @@ defmodule Cache.Redis.Hash do
   end
 
   def hash_delete(pool_name, key, field, opts) do
-    field = TermEncoder.encode(field, opts[:compression_level])
+    field = maybe_encode_hash_field(field, opts[:compression_level])
     Redis.Global.command(pool_name, ["HDEL", Redis.Global.cache_key(pool_name, key), field], opts)
   end
 
@@ -76,5 +76,17 @@ defmodule Cache.Redis.Hash do
 
       {:ok, values}
     end
+  end
+
+  defp maybe_decode_hash_field(field) when is_binary(field), do: field
+
+  defp maybe_decode_hash_field(field) do
+    TermEncoder.decode(field)
+  end
+
+  defp maybe_encode_hash_field(field, _opts) when is_binary(field), do: field
+
+  defp maybe_encode_hash_field(field, opts) do
+    TermEncoder.encode(field, opts[:compression_level])
   end
 end
