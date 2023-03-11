@@ -6,16 +6,16 @@ defmodule Cache.Redis.Hash do
   alias Cache.{Redis, TermEncoder}
 
   def hash_scan(pool_name, key, scan_opts, opts) do
-    with {:ok, field_values} <-
+    with {:ok, fields_values} <-
            Redis.Global.scan_collection(pool_name, "HSCAN", key, scan_opts, opts) do
-      field_values =
-        field_values
+      fields_values =
+        fields_values
         |> Stream.chunk_every(2)
         |> Enum.map(fn [field, value] ->
           {maybe_decode_hash_field(field), TermEncoder.decode(value)}
         end)
 
-      {:ok, field_values}
+      {:ok, fields_values}
     end
   end
 
@@ -41,9 +41,9 @@ defmodule Cache.Redis.Hash do
     end
   end
 
-  def hash_get_many(pool_name, key_fields, opts) do
+  def hash_get_many(pool_name, keys_fields, opts) do
     commands =
-      Enum.map(key_fields, fn {key, fields} ->
+      Enum.map(keys_fields, fn {key, fields} ->
         fields = Enum.map(fields, &maybe_encode_hash_field(&1, opts[:compression_level]))
 
         ["HMGET", Redis.Global.cache_key(pool_name, key)] ++ fields
@@ -81,11 +81,11 @@ defmodule Cache.Redis.Hash do
     ["PEXPIRE", Redis.Global.cache_key(pool_name, key), ttl]
   end
 
-  def hash_set_many(pool_name, key_values, ttl, opts) do
+  def hash_set_many(pool_name, keys_fields_values, ttl, opts) do
     commands =
-      Enum.map(key_values, fn {key, field_values} ->
-        field_values =
-          field_values
+      Enum.map(keys_fields_values, fn {key, fields_values} ->
+        fields_values =
+          fields_values
           |> Enum.map(fn {field, value} ->
             [
               maybe_encode_hash_field(field, opts[:compression_level]),
@@ -94,12 +94,12 @@ defmodule Cache.Redis.Hash do
           end)
           |> List.flatten()
 
-        ["HSET", Redis.Global.cache_key(pool_name, key) | field_values]
+        ["HSET", Redis.Global.cache_key(pool_name, key) | fields_values]
       end)
 
     expiries =
       if ttl do
-        Enum.map(key_values, fn {key, _} ->
+        Enum.map(keys_fields_values, fn {key, _} ->
           redis_pexpire_command(pool_name, key, ttl)
         end)
       else

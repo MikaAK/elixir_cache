@@ -170,7 +170,7 @@ defmodule Cache.Redis do
   defdelegate hash_get_all(pool_name, key, opts \\ []), to: Redis.Hash
   defdelegate hash_get_many(pool_name, key_fields, opts \\ []), to: Redis.Hash
   defdelegate hash_set(pool_name, key, field, value, ttl, opts \\ []), to: Redis.Hash
-  defdelegate hash_set_many(pool_name, key_values, ttl, opts \\ []), to: Redis.Hash
+  defdelegate hash_set_many(pool_name, keys_fields_values, ttl, opts \\ []), to: Redis.Hash
   defdelegate hash_delete(pool_name, key, field, opts \\ []), to: Redis.Hash
   defdelegate hash_values(pool_name, key, opts \\ []), to: Redis.Hash
 

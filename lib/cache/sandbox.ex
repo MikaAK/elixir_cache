@@ -66,10 +66,10 @@ defmodule Cache.Sandbox do
     end)
   end
 
-  def hash_get_many(cache_name, key_fields, _opts) do
+  def hash_get_many(cache_name, keys_fields, _opts) do
     Agent.get(cache_name, fn state ->
       values =
-        Enum.reduce(key_fields, [], fn {key, fields}, acc ->
+        Enum.reduce(keys_fields, [], fn {key, fields}, acc ->
           values = Enum.map(fields, &state[key][&1])
           acc ++ [values]
         end)
