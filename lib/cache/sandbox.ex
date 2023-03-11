@@ -139,11 +139,11 @@ defmodule Cache.Sandbox do
     raise "Not Implemented"
   end
 
-  def scan(_cache_name, _scan_opts, _opts \\ []) do
+  def scan(_cache_name, _scan_opts, _opts) do
     raise "Not Implemented"
   end
 
-  def hash_scan(_cache_name, _key, _scan_opts, _opts \\ []) do
+  def hash_scan(_cache_name, _key, _scan_opts, _opts) do
     raise "Not Implemented"
   end
 end
