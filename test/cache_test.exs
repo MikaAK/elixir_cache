@@ -15,6 +15,13 @@ defmodule CacheTest do
       opts: []
   end
 
+  defmodule TestCache.DETS do
+    use Cache,
+      adapter: Cache.DETS,
+      name: :test_cache_dets,
+      opts: []
+  end
+
   defmodule TestCache.DirtyConCache do
     use Cache,
       adapter: Cache.ConCache,

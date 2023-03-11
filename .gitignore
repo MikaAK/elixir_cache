@@ -41,3 +41,6 @@ Temporary Items
 
 dialyer/
 dialyzer/
+
+# Ignore dets save files
+*.dets
