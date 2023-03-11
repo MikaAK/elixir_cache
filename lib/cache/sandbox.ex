@@ -12,6 +12,7 @@ defmodule Cache.Sandbox do
   @impl Cache
   def opts_definition, do: []
 
+  @impl Cache
   def start_link(opts \\ []) do
     with {:error, {:already_started, pid}} <- Agent.start_link(fn -> %{} end, opts) do
       {:ok, pid}

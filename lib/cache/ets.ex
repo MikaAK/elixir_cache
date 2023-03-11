@@ -36,6 +36,7 @@ defmodule Cache.ETS do
   @impl Cache
   def opts_definition, do: @opts_definition
 
+  @impl Cache
   def start_link(opts) do
     Task.start_link(fn ->
       table_name = opts[:table_name]
