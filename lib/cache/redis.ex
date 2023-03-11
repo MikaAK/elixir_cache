@@ -37,6 +37,10 @@ defmodule Cache.Redis do
 
   defmacro __using__(_opts) do
     quote do
+      def scan(scan_opts \\ []) do
+        @cache_adapter.scan(@cache_name, scan_opts, @adapter_opts)
+      end
+
       def hash_get(key, field) do
         @cache_adapter.hash_get(@cache_name, key, field, @adapter_opts)
       end
@@ -155,6 +159,7 @@ defmodule Cache.Redis do
   defdelegate pipeline!(pool_name, command, opts \\ []), to: Redis.Global
   defdelegate command(pool_name, command, opts \\ []), to: Redis.Global
   defdelegate command!(pool_name, command, opts \\ []), to: Redis.Global
+  defdelegate scan(pool_name, scan_opts, opts \\ []), to: Redis.Global
 
   defdelegate hash_get(pool_name, key, field, opts \\ []), to: Redis.Hash
   defdelegate hash_get_all(pool_name, key, opts \\ []), to: Redis.Hash

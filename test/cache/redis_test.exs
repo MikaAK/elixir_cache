@@ -34,6 +34,37 @@ defmodule Cache.RedisTest do
     :ok
   end
 
+  describe "&scan/1" do
+    setup %{test: test} do
+      Enum.each(1..100, fn idx ->
+        RedisCache.put(test_key(test, "key_#{idx}"), idx)
+      end)
+    end
+
+    test "accepts a match opt", %{test: test} do
+      scan_opts = [match: "#{test}:key_1*"]
+      assert {:ok, elements} = RedisCache.scan(scan_opts)
+      assert length(elements) === 12
+    end
+
+    test "accepts a count opt", %{test: test} do
+      scan_opts = [match: "#{test}:*", count: 100]
+      assert {:ok, elements} = RedisCache.scan(scan_opts)
+      assert length(elements) === 100
+    end
+
+    test "accepts a type arg", %{test: test} do
+      scan_opts = [match: "#{test}:key_1*", type: "zset"]
+      assert {:ok, elements} = RedisCache.scan(scan_opts)
+      assert Enum.empty?(elements)
+    end
+
+    test "returns all keys in the cache" do
+      assert {:ok, elements} = RedisCache.scan()
+      assert length(elements) >= 100
+    end
+  end
+
   describe "&hash_set/3" do
     test "encodes fields and values in a hash as binaries", %{test: test} do
       test_key = test_key(test, "key")
