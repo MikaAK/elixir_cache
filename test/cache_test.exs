@@ -25,14 +25,14 @@ defmodule CacheTest do
   defmodule TestCache.DirtyConCache do
     use Cache,
       adapter: Cache.ConCache,
-      name: :test_cache_dets,
+      name: :test_cache_dirty_con_cache,
       opts: []
   end
 
   defmodule TestCache.ConCache do
     use Cache,
       adapter: Cache.ConCache,
-      name: :test_cache_dets,
+      name: :test_cache_con_cache,
       opts: [dirty?: false]
   end
 
@@ -43,12 +43,14 @@ defmodule CacheTest do
       opts: []
   end
 
-  @adapters [TestCache.Redis, TestCache.ETS, TestCache.Agent, TestCache.ConCache, TestCache.DirtyConCache]
+  @adapters [TestCache.Redis, TestCache.DETS, TestCache.ETS, TestCache.Agent, TestCache.ConCache, TestCache.DirtyConCache]
 
   for adapter <- @adapters do
     describe "#{adapter} &get/1 & &put/2 & &delete/1" do
       setup do
         start_supervised({Cache, [unquote(adapter)]})
+
+        Process.sleep(100)
 
         :ok
       end

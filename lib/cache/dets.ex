@@ -47,7 +47,7 @@ defmodule Cache.DETS do
         |> Keyword.drop([:table_name, :file_path])
         |> Kernel.++([access: :read_write, file: file_path])
 
-      {:ok, _} = :dets.open_file(table_name |> IO.inspect, opts) |> IO.inspect
+      {:ok, _} = :dets.open_file(table_name, opts)
 
       Process.hibernate(Function, :identity, [nil])
     end)
@@ -80,14 +80,10 @@ defmodule Cache.DETS do
   @impl Cache
   def put(cache_name, key, _ttl \\ nil, value, _opts \\ []) do
     :dets.insert(cache_name, {key, value})
-
-    :ok
   end
 
   @impl Cache
   def delete(cache_name, key, _opts \\ []) do
     :dets.delete(cache_name, key)
-
-    :ok
   end
 end

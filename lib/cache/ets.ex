@@ -48,7 +48,7 @@ defmodule Cache.ETS do
 
       opts =
         opts
-        |> Keyword.delete(:table_name)
+        |> Keyword.drop([:table_name, :type])
         |> Kernel.++([opts[:type], :public, :named_table])
 
       opts =
