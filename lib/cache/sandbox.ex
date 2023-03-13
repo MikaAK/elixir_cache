@@ -78,11 +78,15 @@ defmodule Cache.Sandbox do
     end)
   end
 
-  def hash_set_many(cache_name, key, hash_key_value_tuples, _opts) do
+  def hash_set_many(cache_name, keys_fields_values, _ttl \\ nil, _opts) do
     Agent.update(cache_name, fn state ->
-      Map.put(state, key, Map.new(hash_key_value_tuples))
+      Enum.reduce(keys_fields_values, state, fn {key, field_values}, state ->
+        Map.put(state, key, Map.new(field_values))
+      end)
     end)
   end
+
+
 
   def pipeline(_cache_name, _commands, _opts) do
     raise "Not Implemented"
