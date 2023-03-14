@@ -5,8 +5,22 @@ defmodule Cache.Redis.Hash do
 
   alias Cache.{Redis, TermEncoder}
 
+  def hash_scan(pool_name, key, scan_opts, opts) do
+    with {:ok, fields_values} <-
+           Redis.Global.scan_collection(pool_name, "HSCAN", key, scan_opts, opts) do
+      fields_values =
+        fields_values
+        |> Stream.chunk_every(2)
+        |> Enum.map(fn [field, value] ->
+          {maybe_decode_hash_field(field), TermEncoder.decode(value)}
+        end)
+
+      {:ok, fields_values}
+    end
+  end
+
   def hash_get(pool_name, key, field, opts) do
-    field = TermEncoder.encode(field, opts[:compression_level])
+    field = maybe_encode_hash_field(field, opts[:compression_level])
 
     with {:ok, value} when not is_nil(value) <-
            Redis.Global.command(pool_name, ["HGET", Redis.Global.cache_key(pool_name, key), field], opts) do
@@ -20,40 +34,73 @@ defmodule Cache.Redis.Hash do
         data
         |> Enum.chunk_every(2)
         |> Map.new(fn [field, value] ->
-          {TermEncoder.decode(field), TermEncoder.decode(value)}
+          {maybe_decode_hash_field(field), TermEncoder.decode(value)}
         end)
 
       {:ok, hash}
     end
   end
 
-  def hash_set(pool_name, key, field, value, opts) do
-    field = TermEncoder.encode(field, opts[:compression_level])
-    value = TermEncoder.encode(value, opts[:compression_level])
+  def hash_get_many(pool_name, keys_fields, opts) do
+    commands =
+      Enum.map(keys_fields, fn {key, fields} ->
+        fields = Enum.map(fields, &maybe_encode_hash_field(&1, opts[:compression_level]))
 
-    Redis.Global.command(pool_name, ["HSET", Redis.Global.cache_key(pool_name, key), field, value], opts)
+        ["HMGET", Redis.Global.cache_key(pool_name, key)] ++ fields
+      end)
+
+    with {:ok, data} <- Redis.Global.pipeline(pool_name, commands, opts) do
+      values = Enum.map(data, fn values -> Enum.map(values, &TermEncoder.decode/1) end)
+
+      {:ok, values}
+    end
   end
 
-  def hash_set_many(pool_name, key_values, ttl, opts) do
+  def hash_set(pool_name, key, field, value, nil, opts) do
+    Redis.Global.command(
+      pool_name,
+      redis_hset_command(pool_name, key, field, value, opts),
+      opts
+    )
+  end
+
+  def hash_set(pool_name, key, field, value, ttl, opts) do
+    command = redis_hset_command(pool_name, key, field, value, opts)
+    expire = redis_pexpire_command(pool_name, key, ttl)
+
+    Redis.Global.pipeline(pool_name, [command, expire], opts)
+  end
+
+  defp redis_hset_command(pool_name, key, field, value, opts) do
+    field = maybe_encode_hash_field(field, opts)
+    value = TermEncoder.encode(value, opts[:compression_level])
+    ["HSET", Redis.Global.cache_key(pool_name, key), field, value]
+  end
+
+  defp redis_pexpire_command(pool_name, key, ttl) do
+    ["PEXPIRE", Redis.Global.cache_key(pool_name, key), ttl]
+  end
+
+  def hash_set_many(pool_name, keys_fields_values, ttl, opts) do
     commands =
-      Enum.map(key_values, fn {key, field_values} ->
-        field_values =
-          field_values
+      Enum.map(keys_fields_values, fn {key, fields_values} ->
+        fields_values =
+          fields_values
           |> Enum.map(fn {field, value} ->
             [
-              TermEncoder.encode(field, opts[:compression_level]),
+              maybe_encode_hash_field(field, opts[:compression_level]),
               TermEncoder.encode(value, opts[:compression_level])
             ]
           end)
           |> List.flatten()
 
-        ["HSET", Redis.Global.cache_key(pool_name, key) | field_values]
+        ["HSET", Redis.Global.cache_key(pool_name, key) | fields_values]
       end)
 
     expiries =
       if ttl do
-        Enum.map(key_values, fn {key, _} ->
-          ["PEXPIRE", Redis.Global.cache_key(pool_name, key), ttl]
+        Enum.map(keys_fields_values, fn {key, _} ->
+          redis_pexpire_command(pool_name, key, ttl)
         end)
       else
         []
@@ -63,7 +110,7 @@ defmodule Cache.Redis.Hash do
   end
 
   def hash_delete(pool_name, key, field, opts) do
-    field = TermEncoder.encode(field, opts[:compression_level])
+    field = maybe_encode_hash_field(field, opts[:compression_level])
     Redis.Global.command(pool_name, ["HDEL", Redis.Global.cache_key(pool_name, key), field], opts)
   end
 
@@ -76,5 +123,17 @@ defmodule Cache.Redis.Hash do
 
       {:ok, values}
     end
+  end
+
+  defp maybe_decode_hash_field(field) when is_binary(field), do: field
+
+  defp maybe_decode_hash_field(field) do
+    TermEncoder.decode(field)
+  end
+
+  defp maybe_encode_hash_field(field, _opts) when is_binary(field), do: field
+
+  defp maybe_encode_hash_field(field, opts) do
+    TermEncoder.encode(field, opts[:compression_level])
   end
 end

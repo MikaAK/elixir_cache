@@ -59,7 +59,7 @@ defmodule CacheTest do
         assert {:ok, value} === cache_module.get(test_key)
       end
 
-      test "deleteing from cache works" do
+      test "deleting from cache works" do
         test_key = "#{Faker.Pokemon.name()}_#{Enum.random(1..100_000_000_000)}"
         value = %{some_value: Faker.App.name()}
         cache_module = unquote(adapter)
