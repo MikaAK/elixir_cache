@@ -1,4 +1,4 @@
-defmodule Cache.RedisTest do
+defmodule Cache.RedisHashTest do
   @moduledoc """
   Redis-adapter-specific tests.
 

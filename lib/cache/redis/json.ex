@@ -5,6 +5,12 @@ defmodule Cache.Redis.JSON do
 
   alias Cache.{Redis, TermEncoder}
 
+  def get(pool_name, key, nil, opts) do
+    with {:ok, data} <- json_command(pool_name, key, "GET", [], opts) do
+      {:ok, TermEncoder.decode_json(data)}
+    end
+  end
+
   def get(pool_name, key, path, opts) do
     with {:ok, data} <- json_command(pool_name, key, "GET", [serialize_path(path)], opts) do
       {:ok, TermEncoder.decode_json(data)}
@@ -19,14 +25,16 @@ defmodule Cache.Redis.JSON do
     json_command(pool_name, key, "DEL", [serialize_path(path)], opts)
   end
 
-  def incr(pool_name, key, path, value \\ 1, opts) do
-    json_command(
+  def incr(pool_name, key, path, value, opts) do
+    with {:ok, value} <- json_command(
       pool_name,
       key,
       "NUMINCRBY",
       [serialize_path(path), to_string(value)],
       opts
-    )
+    ) do
+      {:ok, String.to_integer(value)}
+    end
   end
 
   def clear(pool_name, key, path, opts) do
@@ -59,6 +67,10 @@ defmodule Cache.Redis.JSON do
     )
   end
 
+  defp serialize_path(nil) do
+    "$"
+  end
+
   defp serialize_path(path_list) do
     Enum.reduce(path_list, "", &append_to_path(&2, &1))
   end
@@ -67,11 +79,15 @@ defmodule Cache.Redis.JSON do
     to_string(field)
   end
 
+  defp append_to_path(path, field) when is_atom(field) do
+    append_to_path(path, to_string(field))
+  end
+
   defp append_to_path(path, index) when is_integer(index) do
     "#{path}[#{index}]"
   end
 
-  defp append_to_path(path, field) when is_integer(field) do
+  defp append_to_path(path, field) when is_binary(field) do
     "#{path}.#{field}"
   end
 

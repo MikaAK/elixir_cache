@@ -73,6 +73,30 @@ defmodule Cache.Redis do
         @cache_adapter.hash_values(@cache_name, key, @adapter_opts)
       end
 
+      def json_get(key, path \\ nil) do
+        @cache_adapter.json_get(@cache_name, key, path, @adapter_opts)
+      end
+
+      def json_set(key, path \\ nil, value) do
+        @cache_adapter.json_set(@cache_name, key, path, value, @adapter_opts)
+      end
+
+      def json_delete(key, path) do
+        @cache_adapter.json_delete(@cache_name, key, path, @adapter_opts)
+      end
+
+      def json_incr(key, path, value \\ 1) do
+        @cache_adapter.json_incr(@cache_name, key, path, value, @adapter_opts)
+      end
+
+      def json_clear(key, path) do
+        @cache_adapter.json_clear(@cache_name, key, path, @adapter_opts)
+      end
+
+      def json_array_append(key, path, value_or_values) do
+        @cache_adapter.json_array_append(@cache_name, key, path, value_or_values, @adapter_opts)
+      end
+
       def command(command, opts \\ []) do
         @cache_adapter.command(@cache_name, command, opts)
       end
@@ -177,7 +201,7 @@ defmodule Cache.Redis do
   defdelegate json_get(pool_name, key, path, opts \\ []), to: Redis.JSON, as: :get
   defdelegate json_set(pool_name, key, path, value, opts \\ []), to: Redis.JSON, as: :set
   defdelegate json_delete(pool_name, key, path, opts \\ []), to: Redis.JSON, as: :delete
-  defdelegate json_incr(pool_name, key, path, opts \\ []), to: Redis.JSON, as: :incr
+  defdelegate json_incr(pool_name, key, path, value \\ 1, opts \\ []), to: Redis.JSON, as: :incr
   defdelegate json_clear(pool_name, key, path, opts \\ []), to: Redis.JSON, as: :clear
 
   defdelegate json_array_append(pool_name, key, path, value_or_values, opts \\ []),

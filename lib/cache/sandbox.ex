@@ -123,6 +123,55 @@ defmodule Cache.Sandbox do
     )
   end
 
+  def json_get(cache_name, key, path, _opts) do
+    Agent.update(cache_name, fn state ->
+      Map.update(state, key, nil, &get_in(&1, String.split(path, ".")))
+    end)
+  end
+
+  def json_set(cache_name, key, path, value, _opts) do
+    Agent.update(cache_name, fn state ->
+      Map.update(state, key, nil, &put_in(&1, String.split(path, "."), value))
+    end)
+  end
+
+  def json_incr(cache_name, key, path, incr \\ 1, _opts) do
+    Agent.update(cache_name, fn state ->
+      Map.update(state, key, nil, fn value ->
+        update_in(value, String.split(path), &(&1 + incr))
+      end)
+    end)
+  end
+
+  def json_clear(cache_name, key, path, _opts) do
+    Agent.update(cache_name, fn state ->
+      Map.update(state, key, nil, &update_in(&1, String.split(path, "."), fn
+        integer when is_integer(integer) -> 0
+        list when is_list(list) -> []
+        map when is_map(map) -> %{}
+        _ -> nil
+      end))
+    end)
+  end
+
+  def json_delete(cache_name, key, path, _opts) do
+    Agent.update(cache_name, fn state ->
+      Map.update(state, key, nil, fn value ->
+        {_, state} = pop_in(value, String.split(path, "."))
+
+        state
+      end)
+    end)
+  end
+
+  def json_array_append(cache_name, key, path, value, _opts) do
+    Agent.update(cache_name, fn state ->
+      Map.update(state, key, nil, fn value ->
+        update_in(value, String.split(path, "."), &(&1 ++ [value]))
+      end)
+    end)
+  end
+
   def pipeline(_cache_name, _commands, _opts) do
     raise "Not Implemented"
   end
