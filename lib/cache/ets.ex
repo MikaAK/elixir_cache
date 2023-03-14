@@ -4,18 +4,23 @@ defmodule Cache.ETS do
       type: :boolean,
       doc: "Enable write concurrency"
     ],
+
     read_concurrency: [
       type: :boolean,
       doc: "Enable read concurrency"
     ],
+
     decentralized_counters: [
       type: :boolean,
       doc: "Use decentralized counters"
     ],
-    enable_ttl?: [
-      type: :pos_integer,
-      doc: "Enables TTLs"
+
+    type: [
+      type: {:in, [:bag, :duplicate_bag, :set]},
+      default: :set,
+      doc: "Data type of ETS cache"
     ],
+
     compressed: [
       type: :boolean,
       doc: "Enable ets compression"
@@ -43,8 +48,8 @@ defmodule Cache.ETS do
 
       opts =
         opts
-        |> Keyword.delete(:table_name)
-        |> Kernel.++([:public, :named_table])
+        |> Keyword.drop([:table_name, :type])
+        |> Kernel.++([opts[:type], :public, :named_table])
 
       opts =
         if opts[:compressed] do
@@ -53,7 +58,7 @@ defmodule Cache.ETS do
           opts
         end
 
-      :ets.new(table_name, opts)
+      _ = :ets.new(table_name, opts)
 
       Process.hibernate(Function, :identity, [nil])
     end)
