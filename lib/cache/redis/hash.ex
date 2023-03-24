@@ -1,7 +1,5 @@
 defmodule Cache.Redis.Hash do
-  @moduledoc """
-  Contains functions for interfacing with redis hash functions
-  """
+  @moduledoc false
 
   alias Cache.{Redis, TermEncoder}
 

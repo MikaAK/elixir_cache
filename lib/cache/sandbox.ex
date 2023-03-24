@@ -166,8 +166,8 @@ defmodule Cache.Sandbox do
 
   def json_array_append(cache_name, key, path, value, _opts) do
     Agent.update(cache_name, fn state ->
-      Map.update(state, key, nil, fn value ->
-        update_in(value, String.split(path, "."), &(&1 ++ [value]))
+      Map.update(state, key, nil, fn state_value ->
+        update_in(state_value, String.split(path, "."), &(&1 ++ [value]))
       end)
     end)
   end

@@ -1,7 +1,5 @@
 defmodule Cache.Redis.JSON do
-  @moduledoc """
-  Contains functions for interfacing with redis JSON functions
-  """
+  @moduledoc false
 
   alias Cache.{Redis, TermEncoder}
 

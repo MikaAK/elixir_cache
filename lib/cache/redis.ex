@@ -184,24 +184,40 @@ defmodule Cache.Redis do
   end
 
   defdelegate pipeline(pool_name, command, opts \\ []), to: Redis.Global
+
   defdelegate pipeline!(pool_name, command, opts \\ []), to: Redis.Global
+
   defdelegate command(pool_name, command, opts \\ []), to: Redis.Global
+
   defdelegate command!(pool_name, command, opts \\ []), to: Redis.Global
+
   defdelegate scan(pool_name, scan_opts, opts \\ []), to: Redis.Global
 
+
   defdelegate hash_scan(pool_name, key, scan_opts, opts \\ []), to: Redis.Hash
+
   defdelegate hash_get(pool_name, key, field, opts \\ []), to: Redis.Hash
+
   defdelegate hash_get_all(pool_name, key, opts \\ []), to: Redis.Hash
+
   defdelegate hash_get_many(pool_name, key_fields, opts \\ []), to: Redis.Hash
+
   defdelegate hash_set(pool_name, key, field, value, ttl, opts \\ []), to: Redis.Hash
+
   defdelegate hash_set_many(pool_name, keys_fields_values, ttl, opts \\ []), to: Redis.Hash
+
   defdelegate hash_delete(pool_name, key, field, opts \\ []), to: Redis.Hash
+
   defdelegate hash_values(pool_name, key, opts \\ []), to: Redis.Hash
 
   defdelegate json_get(pool_name, key, path, opts \\ []), to: Redis.JSON, as: :get
+
   defdelegate json_set(pool_name, key, path, value, opts \\ []), to: Redis.JSON, as: :set
+
   defdelegate json_delete(pool_name, key, path, opts \\ []), to: Redis.JSON, as: :delete
+
   defdelegate json_incr(pool_name, key, path, value \\ 1, opts \\ []), to: Redis.JSON, as: :incr
+
   defdelegate json_clear(pool_name, key, path, opts \\ []), to: Redis.JSON, as: :clear
 
   defdelegate json_array_append(pool_name, key, path, value_or_values, opts \\ []),

@@ -1,7 +1,5 @@
 defmodule Cache.Redis.Global do
-  @moduledoc """
-  Contains General functions for interfacing with redis
-  """
+  @moduledoc false
 
   @default_scan_count 10
 
