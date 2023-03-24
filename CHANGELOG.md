@@ -1,3 +1,8 @@
+# 0.3.0
+- add con_cache
+- add ets cache
+- fix hash opts for redis
+
 # 0.2.1
 - Adds support for application configuration and runtime options
 

@@ -4,7 +4,7 @@ defmodule ElixirCache.MixProject do
   def project do
     [
       app: :elixir_cache,
-      version: "0.2.1",
+      version: "0.3.0",
       elixir: "~> 1.11",
       start_permanent: Mix.env() == :prod,
       description: "Standardized and testable caching across your app. In test caches are isolated.",
@@ -79,8 +79,9 @@ defmodule ElixirCache.MixProject do
         "Adapters": [
           Cache.Agent,
           Cache.ETS,
-          Cache.Redis
-          # Cache.ConCache
+          Cache.DETS,
+          Cache.Redis,
+          Cache.ConCache
         ],
 
         "Test Utils": [
