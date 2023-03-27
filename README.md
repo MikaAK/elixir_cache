@@ -55,7 +55,7 @@ MyModule.get("key") #> {:ok, "value"}
 - `Cache.Agent` - Simple agent based caching
 - `Cache.DETS`  - Disk persisted caching with [dets](https://www.erlang.org/doc/man/dets.html)
 - `Cache.ETS`   - Super quick in-memory cache with [`ets`](https://www.erlang.org/doc/man/ets.html)
-- `Cache.Redis` - Caching adapter using [Redix](https://github.com/whatyouhide/redix) & [Poolboy](https://github.com/devinus/poolboy)
+- `Cache.Redis` - Caching adapter using [Redix](https://github.com/whatyouhide/redix) & [Poolboy](https://github.com/devinus/poolboy), supports Redis JSON an Redis Hashes
 - `Cache.ConCache` - Wrapper around [ConCache](https://github.com/sasa1977/con_cache) library
 
 #### Adapter Specific Functions
