@@ -62,7 +62,10 @@ defmodule Cache.Sandbox do
 
   def hash_get_all(cache_name, key, _opts) do
     Agent.get(cache_name, fn state ->
-      {:ok, state[key]}
+      case state[key] do
+        nil -> {:ok, %{}}
+        value -> {:ok, value}
+      end
     end)
   end
 
