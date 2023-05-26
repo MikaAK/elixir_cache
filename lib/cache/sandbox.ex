@@ -124,14 +124,14 @@ defmodule Cache.Sandbox do
   end
 
   def json_get(cache_name, key, path, _opts) do
-    Agent.update(cache_name, fn state ->
-      Map.update(state, key, nil, &get_in(&1, String.split(path, ".")))
+    Agent.get(cache_name, fn state ->
+      {:ok, get_in(state, [key, String.split(path, ".")])}
     end)
   end
 
   def json_set(cache_name, key, path, value, _opts) do
     Agent.update(cache_name, fn state ->
-      Map.update(state, key, nil, &put_in(&1, String.split(path, "."), value))
+      Map.put(state, key, put_in(state, [String.split(path, ".")], value))
     end)
   end
 
