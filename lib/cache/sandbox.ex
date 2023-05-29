@@ -128,14 +128,27 @@ defmodule Cache.Sandbox do
 
   def json_get(cache_name, key, path, _opts) do
     Agent.get(cache_name, fn state ->
-      {:ok, get_in(state, [key, String.split(path, ".")])}
+      case get_in(state, [key | String.split(path, ".")]) do
+        nil -> {:error, ErrorMessage.not_found("ERR Path '$.#{path}' does not exist")}
+        value -> {:ok, value}
+      end
     end)
   end
 
   def json_set(cache_name, key, path, value, _opts) do
     Agent.update(cache_name, fn state ->
-      Map.put(state, key, put_in(state, [String.split(path, ".")], value))
+      put_in(state, add_defaults([key | String.split(path, ".")]), value)
     end)
+  end
+
+  defp add_defaults([key | keys]) do
+    [Access.key(key, key_default(key)) | add_defaults(keys)]
+  end
+
+  defp add_defaults(keys), do: keys
+
+  defp key_default(key) do
+    if Regex.match?(~r/\d+/, key), do: [], else: %{}
   end
 
   def json_incr(cache_name, key, path, incr \\ 1, _opts) do

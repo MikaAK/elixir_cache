@@ -91,9 +91,22 @@ defmodule Cache.Redis.Global do
 
   defp handle_response({:ok, "OK"}), do: :ok
   defp handle_response({:ok, _} = res), do: res
+
   defp handle_response({:error, %Redix.ConnectionError{reason: reason}}) do
     {:error, ErrorMessage.service_unavailable("redis connection errored because: #{reason}")}
   end
 
-  defp handle_response({:error, _} = res), do: res
+  defp handle_response({:error, %Redix.Error{message: "ERR Path" <> _rest = message}}) do
+    {:error, ErrorMessage.not_found(message)}
+  end
+
+  defp handle_response(
+         {:error, %Redix.Error{message: "ERR new objects must be created at the root" = message}}
+       ) do
+    {:error, ErrorMessage.bad_request(message)}
+  end
+
+  defp handle_response({:error, error}) do
+    {:error, ErrorMessage.internal_server_error("Internal server error", %{error: inspect(error)})}
+  end
 end
