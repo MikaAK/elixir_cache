@@ -65,27 +65,27 @@ defmodule Cache.Redis.JSON do
     )
   end
 
-  defp serialize_path(nil) do
+  def serialize_path(nil) do
     "$"
   end
 
-  defp serialize_path(path_list) do
+  def serialize_path(path_list) do
     Enum.reduce(path_list, "", &append_to_path(&2, &1))
   end
 
-  defp append_to_path("", field) do
+  def append_to_path("", field) do
     to_string(field)
   end
 
-  defp append_to_path(path, field) when is_atom(field) do
+  def append_to_path(path, field) when is_atom(field) do
     append_to_path(path, to_string(field))
   end
 
-  defp append_to_path(path, index) when is_integer(index) do
+  def append_to_path(path, index) when is_integer(index) do
     "#{path}[#{index}]"
   end
 
-  defp append_to_path(path, field) when is_binary(field) do
+  def append_to_path(path, field) when is_binary(field) do
     "#{path}.#{field}"
   end
 
