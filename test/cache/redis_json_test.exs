@@ -37,6 +37,10 @@ defmodule Cache.RedisJSONTest do
         "some_map" => %{"one" => 1, "two" => 2, "three" => 3, "four" => 4}
       }} === RedisCache.json_get(key)
     end
+
+    test "returns :ok and nil if key not found" do
+      assert {:ok, nil} === RedisCache.json_get("non_existing")
+    end
   end
 
   describe "&json_get/2" do
