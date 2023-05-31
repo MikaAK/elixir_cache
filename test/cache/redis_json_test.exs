@@ -9,7 +9,7 @@ defmodule Cache.RedisJSONTest do
     some_integer: 1234,
     some_array: [1, 2, 3, 4],
     some_empty_array: [],
-    some_map: %{one: 1, two: 2, three: 3, four: 4},
+    some_map: %{one: 1, two: 2, three: 3, four: 4}
   }
 
   defmodule RedisCache do
@@ -44,6 +44,15 @@ defmodule Cache.RedisJSONTest do
       assert {:ok, @test_value.some_map.one} === RedisCache.json_get(key, [:some_map, :one])
       assert {:ok, Enum.at(@test_value.some_array, 0)} === RedisCache.json_get(key, [:some_array, 0])
     end
+
+    test "returns :error tuple if path not found", %{key: key} do
+      assert {:error,
+              %ErrorMessage{
+                message: "ERR Path '$.non_existing.path' does not exist",
+                code: :not_found,
+                details: nil
+              }} === RedisCache.json_get(key, [:non_existing, :path])
+    end
   end
 
   describe "&json_set/2" do
@@ -57,6 +66,33 @@ defmodule Cache.RedisJSONTest do
     test "updates a json path", %{key: key} do
       assert :ok = RedisCache.json_set(key, [:some_map, :one], 4)
       assert {:ok, 4} = RedisCache.json_get(key, [:some_map, :one])
+    end
+
+    test "returns error tuple if key does not exist" do
+      assert {:error,
+              %ErrorMessage{
+                message: "ERR new objects must be created at the root",
+                code: :bad_request,
+                details: nil
+              }} === RedisCache.json_set("non_existing", [:some_map, :one], 4)
+    end
+
+    test "returns :ok and nil if key exists but not the path", %{key: key} do
+      assert {:ok, nil} = RedisCache.json_set(key, [:some_other_map, :two], 4)
+
+      assert {:ok,
+              %{
+                "some_integer" => 1234,
+                "some_array" => [1, 2, 3, 4],
+                "some_empty_array" => [],
+                "some_map" => %{"one" => 1, "two" => 2, "three" => 3, "four" => 4}
+              }} === RedisCache.json_get(key)
+    end
+
+    test "ignores'.' as path", %{key: key} do
+      assert :ok = RedisCache.json_set(key, ["."], "some value")
+      assert {:ok, "some value"} === RedisCache.json_get(key)
+      assert {:ok, "some value"} === RedisCache.json_get(key, ["."])
     end
   end
 
