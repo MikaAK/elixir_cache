@@ -7,6 +7,8 @@ defmodule Cache.Sandbox do
 
   use Agent
 
+  alias Cache.Redis.JSON
+
   @behaviour Cache
 
   @impl Cache
@@ -127,6 +129,7 @@ defmodule Cache.Sandbox do
   end
 
   def json_get(cache_name, key, path, _opts) do
+    path = JSON.serialize_path(path)
     Agent.get(cache_name, fn state ->
       case get_in(state, [key | String.split(path, ".")]) do
         nil -> {:error, ErrorMessage.not_found("ERR Path '$.#{path}' does not exist")}
@@ -136,6 +139,7 @@ defmodule Cache.Sandbox do
   end
 
   def json_set(cache_name, key, path, value, _opts) do
+    path = JSON.serialize_path(path)
     Agent.update(cache_name, fn state ->
       put_in(state, add_defaults([key | String.split(path, ".")]), value)
     end)

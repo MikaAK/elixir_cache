@@ -66,6 +66,8 @@ defmodule Cache.RedisJSONTest do
     test "updates a json path", %{key: key} do
       assert :ok = RedisCache.json_set(key, [:some_map, :one], 4)
       assert {:ok, 4} = RedisCache.json_get(key, [:some_map, :one])
+      assert :ok =  RedisCache.json_set(key, ["some_map.one"], 5)
+      assert {:ok, 5} = RedisCache.json_get(key, [:some_map, :one])
     end
 
     test "returns error tuple if key does not exist" do

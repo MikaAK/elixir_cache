@@ -11,7 +11,7 @@ defmodule CacheSandboxTest do
 
   @cache_key "SomeKey"
   @cache_value 1234
-  @cache_path "a.b"
+  @cache_path [:a, :b]
 
   setup do
     Cache.SandboxRegistry.start(TestCache)
@@ -28,16 +28,23 @@ defmodule CacheSandboxTest do
     test "works to seperate caches between tests" do
       assert {:ok, nil} = TestCache.get(@cache_key)
     end
+  end
 
-    test "works with json commands" do
+  describe "&json_get/2" do
+    test "gets an item at path" do
+      assert :ok = TestCache.json_set(@cache_key, @cache_path, @cache_value)
+      assert {:ok, @cache_value} = TestCache.json_get(@cache_key, @cache_path)
+      assert {:ok, @cache_value} = TestCache.json_get(@cache_key, ["a.b"])
+    end
+
+    test "returns :error tuple if path not found" do
       assert {:error,
               %ErrorMessage{
                 message: "ERR Path '$.c.d' does not exist",
                 code: :not_found,
                 details: nil
-              }} === TestCache.json_get(@cache_key, "c.d")
-      assert :ok = TestCache.json_set(@cache_key, @cache_path, @cache_value)
-      assert {:ok, @cache_value} = TestCache.json_get(@cache_key, @cache_path)
+              }} === TestCache.json_get(@cache_key, ["c.d"])
+
     end
   end
 end
