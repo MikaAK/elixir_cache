@@ -39,7 +39,7 @@ defmodule ElixirCache.MixProject do
   defp deps do
     [
       {:error_message, "~> 0.3"},
-      {:redix, "~> 1.2"},
+      {:redix, "1.2.1"},
       {:poolboy, "~> 1.5"},
 
       {:con_cache, "~> 1.0"},
