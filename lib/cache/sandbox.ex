@@ -8,6 +8,7 @@ defmodule Cache.Sandbox do
   use Agent
 
   alias Cache.Redis.JSON
+  alias Cache.TermEncoder
 
   @behaviour Cache
 
@@ -119,40 +120,36 @@ defmodule Cache.Sandbox do
     end
   end
 
-  defp put_hash_field_values(state, key, fields_values) do
-    Map.update(
-      state,
-      key,
-      Map.new(fields_values),
-      &Enum.reduce(fields_values, &1, fn {field, value}, acc -> Map.put(acc, field, value) end)
-    )
+  def json_get(cache_name, key, path, _opts) when path in [nil, ["."]]  do
+    get(cache_name, key)
   end
 
   def json_get(cache_name, key, path, _opts) do
-    path = JSON.serialize_path(path)
-    Agent.get(cache_name, fn state ->
-      case get_in(state, [key | String.split(path, ".")]) do
-        nil -> {:error, ErrorMessage.not_found("ERR Path '$.#{path}' does not exist")}
-        value -> {:ok, value}
+    if contains_index?(path) do
+      [index | path ] = Enum.reverse(path)
+      with {:ok, value} <- serialize_path_and_get_value(cache_name, key, path) do
+        {:ok, Enum.at(value, index)}
       end
-    end)
+    else
+      serialize_path_and_get_value(cache_name, key, path)
+    end
+  end
+
+  def json_set(cache_name, key, path, value, _opts) when path in [nil, ["."]] do
+    put(cache_name, key, stringify_value(value))
   end
 
   def json_set(cache_name, key, path, value, _opts) do
+    state = Agent.get(cache_name, & &1)
     path = JSON.serialize_path(path)
-    Agent.update(cache_name, fn state ->
-      put_in(state, add_defaults([key | String.split(path, ".")]), value)
-    end)
-  end
-
-  defp add_defaults([key | keys]) do
-    [Access.key(key, key_default(key)) | add_defaults(keys)]
-  end
-
-  defp add_defaults(keys), do: keys
-
-  defp key_default(key) do
-    if Regex.match?(~r/\d+/, key), do: [], else: %{}
+    with :ok <- check_key_exists(state, key),
+         :ok <- check_path_exists(state, key, path) do
+      path = add_defaults([key | String.split(path, ".")])
+      value = stringify_value(value)
+      Agent.update(cache_name, fn state ->
+        put_in(state, path, value)
+      end)
+    end
   end
 
   def json_incr(cache_name, key, path, incr \\ 1, _opts) do
@@ -214,5 +211,61 @@ defmodule Cache.Sandbox do
 
   def hash_scan(_cache_name, _key, _scan_opts, _opts) do
     raise "Not Implemented"
+  end
+
+  defp put_hash_field_values(state, key, fields_values) do
+    Map.update(
+      state,
+      key,
+      Map.new(fields_values),
+      &Enum.reduce(fields_values, &1, fn {field, value}, acc -> Map.put(acc, field, value) end)
+    )
+  end
+
+  defp check_key_exists(state, key) do
+    if Map.has_key?(state, key) do
+      :ok
+    else
+      {:error, ErrorMessage.bad_request("ERR new objects must be created at the root")}
+    end
+  end
+
+  defp check_path_exists(state, key, path) do
+    case get_in(state, [key | String.split(path, ".")]) do
+      nil -> {:ok, nil}
+      _ -> :ok
+    end
+  end
+
+  defp add_defaults([key | keys]) do
+    [Access.key(key, key_default(key)) | add_defaults(keys)]
+  end
+
+  defp add_defaults(keys), do: keys
+
+  defp key_default(key) do
+    if Regex.match?(~r/\d+/, key), do: [], else: %{}
+  end
+
+  defp stringify_value(value) do
+    value
+    |> TermEncoder.encode_json( )
+    |> TermEncoder.decode_json()
+  end
+
+  defp contains_index?(path) do
+    path
+    |> List.last()
+    |> is_integer()
+  end
+
+  defp serialize_path_and_get_value(cache_name, key, path) do
+    path = JSON.serialize_path(path)
+      Agent.get(cache_name, fn state ->
+        case get_in(state, [key | String.split(path, ".")]) do
+          nil -> {:error, ErrorMessage.not_found("ERR Path '$.#{path}' does not exist")}
+          value -> {:ok, value}
+        end
+      end)
   end
 end
