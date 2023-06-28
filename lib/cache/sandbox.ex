@@ -249,7 +249,7 @@ defmodule Cache.Sandbox do
 
   defp stringify_value(value) do
     value
-    |> TermEncoder.encode_json( )
+    |> TermEncoder.encode_json()
     |> TermEncoder.decode_json()
   end
 
