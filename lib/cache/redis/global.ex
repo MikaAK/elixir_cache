@@ -8,24 +8,32 @@ defmodule Cache.Redis.Global do
   end
 
   def command(pool_name, command, opts \\ []) do
+    opts = Keyword.delete(opts, :uri)
+
     :poolboy.transaction(pool_name, fn pid ->
       pid |> Redix.command(command, opts) |> handle_response
     end)
   end
 
   def command!(pool_name, command, opts \\ []) do
+    opts = Keyword.delete(opts, :uri)
+
     :poolboy.transaction(pool_name, fn pid ->
       Redix.command!(pid, command, opts)
     end)
   end
 
   def pipeline(pool_name, commands, opts \\ []) do
+    opts = Keyword.delete(opts, :uri)
+
     :poolboy.transaction(pool_name, fn pid ->
       pid |> Redix.pipeline(commands, opts) |> handle_response
     end)
   end
 
   def pipeline!(pool_name, commands, opts \\ []) do
+    opts = Keyword.delete(opts, :uri)
+
     :poolboy.transaction(pool_name, fn pid ->
       Redix.pipeline!(pid, commands, opts)
     end)
@@ -38,6 +46,7 @@ defmodule Cache.Redis.Global do
 
     with {:ok, elements} <- scan_and_paginate(pool_name, "SCAN", nil, 0, match, count, type) do
       keys = Enum.map(elements, &String.replace_leading(&1, "#{pool_name}:", ""))
+
       {:ok, keys}
     end
   end
