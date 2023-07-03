@@ -1,3 +1,7 @@
+# 0.3.1
+- add some more json sandboxing
+- update redis to remove uri from command options
+
 # 0.3.0
 - add con_cache
 - add ets cache
