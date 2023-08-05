@@ -43,7 +43,7 @@ defmodule ElixirCache.MixProject do
       {:poolboy, "~> 1.5"},
 
       {:con_cache, "~> 1.0"},
-      {:nimble_options, "~> 0.5"},
+      {:nimble_options, "~> 1.0"},
       {:sandbox_registry, "~> 0.1"},
       {:jason, "~> 1.0"},
 
