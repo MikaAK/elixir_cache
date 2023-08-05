@@ -1,3 +1,6 @@
+# 0.3.2
+- Update nimble options to 1.x
+
 # 0.3.1
 - add some more json sandboxing
 - update redis to remove uri from command options
