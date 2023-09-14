@@ -120,13 +120,14 @@ defmodule Cache.Sandbox do
     end
   end
 
-  def json_get(cache_name, key, path, _opts) when path in [nil, ["."]]  do
+  def json_get(cache_name, key, path, _opts) when path in [nil, ["."]] do
     get(cache_name, key)
   end
 
   def json_get(cache_name, key, path, _opts) do
     if contains_index?(path) do
-      [index | path ] = Enum.reverse(path)
+      [index | path] = Enum.reverse(path)
+
       with {:ok, value} <- serialize_path_and_get_value(cache_name, key, path) do
         {:ok, Enum.at(value, index)}
       end
@@ -142,10 +143,12 @@ defmodule Cache.Sandbox do
   def json_set(cache_name, key, path, value, _opts) do
     state = Agent.get(cache_name, & &1)
     path = JSON.serialize_path(path)
+
     with :ok <- check_key_exists(state, key),
          :ok <- check_path_exists(state, key, path) do
       path = add_defaults([key | String.split(path, ".")])
       value = stringify_value(value)
+
       Agent.update(cache_name, fn state ->
         put_in(state, path, value)
       end)
@@ -162,12 +165,17 @@ defmodule Cache.Sandbox do
 
   def json_clear(cache_name, key, path, _opts) do
     Agent.update(cache_name, fn state ->
-      Map.update(state, key, nil, &update_in(&1, String.split(path, "."), fn
-        integer when is_integer(integer) -> 0
-        list when is_list(list) -> []
-        map when is_map(map) -> %{}
-        _ -> nil
-      end))
+      Map.update(
+        state,
+        key,
+        nil,
+        &update_in(&1, String.split(path, "."), fn
+          integer when is_integer(integer) -> 0
+          list when is_list(list) -> []
+          map when is_map(map) -> %{}
+          _ -> nil
+        end)
+      )
     end)
   end
 
@@ -261,11 +269,28 @@ defmodule Cache.Sandbox do
 
   defp serialize_path_and_get_value(cache_name, key, path) do
     path = JSON.serialize_path(path)
-      Agent.get(cache_name, fn state ->
-        case get_in(state, [key | String.split(path, ".")]) do
-          nil -> {:error, ErrorMessage.not_found("ERR Path '$.#{path}' does not exist")}
-          value -> {:ok, value}
-        end
-      end)
+
+    Agent.get(cache_name, fn state ->
+      case get_in(state, [key | String.split(path, ".")]) do
+        nil -> {:error, ErrorMessage.not_found("ERR Path '$.#{path}' does not exist")}
+        value -> {:ok, value}
+      end
+    end)
+  end
+
+  def get_or_store(_cache_name, _key, _store_fun) do
+    raise "Not Implemented"
+  end
+
+  def get_or_store(_cache_name, _key, _store_fun, _opts) do
+    raise "Not Implemented"
+  end
+
+  def dirty_get_or_store(_cache_name, _key, _store_fun) do
+    raise "Not Implemented"
+  end
+
+  def dirty_get_or_store(_cache_name, _key, _store_fun, _opts) do
+    raise "Not Implemented"
   end
 end
