@@ -38,63 +38,63 @@ defmodule Cache.Redis do
   defmacro __using__(_opts) do
     quote do
       def scan(scan_opts \\ []) do
-        @cache_adapter.scan(@cache_name, scan_opts, @adapter_opts)
+        @cache_adapter.scan(@cache_name, scan_opts, adapter_options())
       end
 
       def hash_scan(key, scan_opts \\ []) do
-        @cache_adapter.hash_scan(@cache_name, key, scan_opts, @adapter_opts)
+        @cache_adapter.hash_scan(@cache_name, key, scan_opts, adapter_options())
       end
 
       def hash_get(key, field) do
-        @cache_adapter.hash_get(@cache_name, key, field, @adapter_opts)
+        @cache_adapter.hash_get(@cache_name, key, field, adapter_options())
       end
 
       def hash_get_all(key) do
-        @cache_adapter.hash_get_all(@cache_name, key, @adapter_opts)
+        @cache_adapter.hash_get_all(@cache_name, key, adapter_options())
       end
 
       def hash_get_many(key_fields) do
-        @cache_adapter.hash_get_many(@cache_name, key_fields, @adapter_opts)
+        @cache_adapter.hash_get_many(@cache_name, key_fields, adapter_options())
       end
 
       def hash_set(key, field, value, ttl \\ nil) do
-        @cache_adapter.hash_set(@cache_name, key, field, value, ttl, @adapter_opts)
+        @cache_adapter.hash_set(@cache_name, key, field, value, ttl, adapter_options())
       end
 
       def hash_set_many(keys_fields_values, ttl \\ nil) do
-        @cache_adapter.hash_set_many(@cache_name, keys_fields_values, ttl, @adapter_opts)
+        @cache_adapter.hash_set_many(@cache_name, keys_fields_values, ttl, adapter_options())
       end
 
       def hash_delete(key, field) do
-        @cache_adapter.hash_delete(@cache_name, key, field, @adapter_opts)
+        @cache_adapter.hash_delete(@cache_name, key, field, adapter_options())
       end
 
       def hash_values(key) do
-        @cache_adapter.hash_values(@cache_name, key, @adapter_opts)
+        @cache_adapter.hash_values(@cache_name, key, adapter_options())
       end
 
       def json_get(key, path \\ nil) do
-        @cache_adapter.json_get(@cache_name, key, path, @adapter_opts)
+        @cache_adapter.json_get(@cache_name, key, path, adapter_options())
       end
 
       def json_set(key, path \\ nil, value) do
-        @cache_adapter.json_set(@cache_name, key, path, value, @adapter_opts)
+        @cache_adapter.json_set(@cache_name, key, path, value, adapter_options())
       end
 
       def json_delete(key, path) do
-        @cache_adapter.json_delete(@cache_name, key, path, @adapter_opts)
+        @cache_adapter.json_delete(@cache_name, key, path, adapter_options())
       end
 
       def json_incr(key, path, value \\ 1) do
-        @cache_adapter.json_incr(@cache_name, key, path, value, @adapter_opts)
+        @cache_adapter.json_incr(@cache_name, key, path, value, adapter_options())
       end
 
       def json_clear(key, path) do
-        @cache_adapter.json_clear(@cache_name, key, path, @adapter_opts)
+        @cache_adapter.json_clear(@cache_name, key, path, adapter_options())
       end
 
       def json_array_append(key, path, value_or_values) do
-        @cache_adapter.json_array_append(@cache_name, key, path, value_or_values, @adapter_opts)
+        @cache_adapter.json_array_append(@cache_name, key, path, value_or_values, adapter_options())
       end
 
       def command(command, opts \\ []) do
