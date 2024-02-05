@@ -127,6 +127,10 @@ end
       assert {:ok, [1, 1]} = TestCache.hash_set_many([{key, [{"some_key", "some_value"}]}], 1_000)
 
       assert {:ok, [1, 1]} = TestCache.hash_set_many([{key, %{"some_key" => "some_value"}}], 1_000)
+
+      assert {:ok, [1, 1]} = TestCache.hash_set_many(%{key => [{"some_key", "some_value"}]}, 1_000)
+
+      assert {:ok, [1, 1]} = TestCache.hash_set_many(%{key => %{"some_key" => "some_value"}}, 1_000)
     end
   end
 end
