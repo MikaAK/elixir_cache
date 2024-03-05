@@ -26,7 +26,6 @@ defmodule CacheSandboxTest do
     :ok = TestCache.json_set(json_test_key, @json_test_value)
 
     %{key: json_test_key}
-
   end
 
   describe "sandboxing caches" do
@@ -112,6 +111,26 @@ end
       assert :ok = TestCache.json_set(key, ["."], "some value")
       assert {:ok, "some value"} === TestCache.json_get(key)
       assert {:ok, "some value"} === TestCache.json_get(key, ["."])
+    end
+  end
+
+  describe "&hash_set_many/2" do
+    test "returns ok tuple when ttl is passed", %{key: key} do
+      assert {:ok, [1, 1]} = TestCache.hash_set_many([{key, [{"some_key", "some_value"}]}], 1_000)
+    end
+
+    test "returns ok atom when ttl is not passed", %{key: key} do
+      assert :ok = TestCache.hash_set_many([{key, [{"some_key", "some_value"}]}])
+    end
+
+    test "accepts map and list values", %{key: key} do
+      assert {:ok, [1, 1]} = TestCache.hash_set_many([{key, [{"some_key", "some_value"}]}], 1_000)
+
+      assert {:ok, [1, 1]} = TestCache.hash_set_many([{key, %{"some_key" => "some_value"}}], 1_000)
+
+      assert {:ok, [1, 1]} = TestCache.hash_set_many(%{key => [{"some_key", "some_value"}]}, 1_000)
+
+      assert {:ok, [1, 1]} = TestCache.hash_set_many(%{key => %{"some_key" => "some_value"}}, 1_000)
     end
   end
 end

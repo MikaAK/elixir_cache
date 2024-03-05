@@ -111,7 +111,7 @@ defmodule Cache.Sandbox do
 
     if ttl do
       command_resps =
-        Enum.map(keys_fields_values, fn {_, fields_values} -> length(fields_values) end)
+        Enum.map(keys_fields_values, fn {_, fields_values} -> enum_length(fields_values) end)
 
       expiry_resps = Enum.map(keys_fields_values, fn _ -> 1 end)
       {:ok, command_resps ++ expiry_resps}
@@ -268,4 +268,7 @@ defmodule Cache.Sandbox do
         end
       end)
   end
+
+  defp enum_length(m) when is_map(m), do: m |> Map.to_list() |> enum_length()
+  defp enum_length(l), do: length(l)
 end
