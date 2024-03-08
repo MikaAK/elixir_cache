@@ -1,3 +1,8 @@
+# 0.3.3
+- use adapter options to allow for runtime options
+- update sandbox hash_set_many behaviour to be consistent
+- ensure dets does a mkdir_p at startup incase directory doesn't exist
+
 # 0.3.2
 - Update nimble options to 1.x
 
