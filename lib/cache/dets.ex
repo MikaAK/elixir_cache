@@ -40,6 +40,7 @@ defmodule Cache.DETS do
       file_path = opts[:file_path]
         |> to_string
         |> create_file_name(table_name)
+        |> tap(&File.mkdir_p!(Path.dirname(&1)))
         |> String.to_charlist
 
       opts =
