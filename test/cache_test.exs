@@ -102,6 +102,48 @@ defmodule CacheTest do
         assert {:ok, nil} = cache_module.get(test_key)
       end
     end
+
+    describe "#{adapter} &get_or_create/1" do
+      setup do
+        start_supervised({Cache, [unquote(adapter)]})
+
+        Process.sleep(100)
+
+        :ok
+      end
+
+      test "finds an item in the cache that already exists" do
+        test_key = "#{Faker.Pokemon.name()}_#{Enum.random(1..100_000_000_000)}"
+        value = %{some_value: Faker.App.name()}
+        cache_module = unquote(adapter)
+
+        assert :ok = cache_module.put(test_key, value)
+
+        Process.sleep(50)
+
+        assert {:ok, value} === cache_module.get_or_create(test_key, fn ->
+          raise "I shouldn't be called"
+        end)
+
+        assert {:ok, value} === cache_module.get(test_key)
+      end
+
+      test "creates a value for key when key doesn't exist in cache" do
+        test_key = "#{Faker.Pokemon.name()}_#{Enum.random(1..100_000_000_000)}"
+        value = %{some_value: Faker.App.name()}
+        cache_module = unquote(adapter)
+
+        assert {:ok, nil} = cache_module.get(test_key)
+
+        assert {:ok, value} === cache_module.get_or_create(test_key, fn ->
+          {:ok, value}
+        end)
+
+        Process.sleep(50)
+
+        assert {:ok, value} === cache_module.get(test_key)
+      end
+    end
   end
 
   defmodule TestCache.RedisRuntimeMFA do

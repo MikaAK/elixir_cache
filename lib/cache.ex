@@ -130,6 +130,10 @@ defmodule Cache do
         @cache_adapter.delete(@cache_name, key, adapter_options())
       end
 
+      def get_or_create(key, fnc) do
+        Cache.get_or_create(__MODULE__, key, fnc)
+      end
+
       if @cache_opts[:sandbox?] do
         defp maybe_sandbox_key(key) do
           sandbox_id = Cache.SandboxRegistry.find!(__MODULE__)
@@ -150,5 +154,19 @@ defmodule Cache do
 
   def init(cache_children) do
     Supervisor.init(cache_children, strategy: :one_for_one)
+  end
+
+  def get_or_create(cache, key, fnc) do
+    case cache.get(key) do
+      {:ok, nil} ->
+        with {:ok, value} <- fnc.(),
+             :ok <- cache.put(key, value) do
+          {:ok, value}
+        end
+
+      {:ok, _} = res -> res
+
+      {:error, _} = e -> e
+    end
   end
 end
