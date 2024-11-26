@@ -1,3 +1,6 @@
+# 0.3.4
+- add `get_or_create(key, (() -> {:ok, value} | {:error, reson}))` to allow for create or updates
+
 # 0.3.3
 - use adapter options to allow for runtime options
 - update sandbox hash_set_many behaviour to be consistent
