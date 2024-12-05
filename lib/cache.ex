@@ -148,6 +148,13 @@ defmodule Cache do
     end
   end
 
+  def child_spec(children) do
+    %{
+      id: Cache,
+      start: {Cache, :start_link, [children]}
+    }
+  end
+
   def start_link(cache_children, opts \\ []) do
     Supervisor.start_link(Cache, cache_children, opts)
   end
