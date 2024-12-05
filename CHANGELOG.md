@@ -1,3 +1,6 @@
+# 0.3.5
+- fix: Cache child spec for starting under a supervisor
+
 # 0.3.4
 - add `get_or_create(key, (() -> {:ok, value} | {:error, reson}))` to allow for create or updates
 

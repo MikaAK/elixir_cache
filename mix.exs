@@ -4,7 +4,7 @@ defmodule ElixirCache.MixProject do
   def project do
     [
       app: :elixir_cache,
-      version: "0.3.4",
+      version: "0.3.5",
       elixir: "~> 1.11",
       start_permanent: Mix.env() == :prod,
       description: "Standardized and testable caching across your app. In test caches are isolated.",
