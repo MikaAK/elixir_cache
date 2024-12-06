@@ -151,6 +151,7 @@ defmodule Cache do
   def child_spec(children) do
     %{
       id: Cache,
+      type: :supervisor,
       start: {Cache, :start_link, [children]}
     }
   end
