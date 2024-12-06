@@ -1,3 +1,6 @@
+# 0.3.6
+- chore: fix child_spec type
+
 # 0.3.5
 - fix: Cache child spec for starting under a supervisor
 
