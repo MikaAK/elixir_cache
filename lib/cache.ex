@@ -117,9 +117,12 @@ defmodule Cache do
 
       def get(key) do
         key = maybe_sandbox_key(key)
-
+        :telemetry.execute([:elixir_cache, :cache, :call], %{count: 1}, %{cache_name: @cache_name})
         with {:ok, value} when not is_nil(value) <-
                @cache_adapter.get(@cache_name, key, adapter_options()) do
+                :telemetry.execute([:elixir_cache, :cache, :hit], %{count: 1}, %{
+                  cache_name: @cache_name
+                })
           {:ok, Cache.TermEncoder.decode(value)}
         end
       end
