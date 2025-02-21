@@ -5,7 +5,6 @@ if Mix.env() != :test or Code.ensure_loaded?(:elixir_cache) do
 
     Metrics included:
       - `elixir_cache.cache.get.count`
-      - `elixir_cache.cache.get.hit.count`
       - `elixir_cache.cache.get.miss.count`
       - `elixir_cache.cache.get.error.count`
       - `elixir_cache.cache.put.count`
@@ -25,13 +24,6 @@ if Mix.env() != :test or Code.ensure_loaded?(:elixir_cache) do
           measurement: :count,
           description: "Total cache calls",
           tags: [:cache_name, :action],
-          tag_values: &extract_cache_metadata/1
-        ),
-        counter("elixir_cache.cache.get.hit.count",
-          event_name: [:elixir_cache, :cache, :get, :hit],
-          measurement: :count,
-          description: "Cache hit count",
-          tags: [:cache_name, :action, :result],
           tag_values: &extract_cache_metadata/1
         ),
         counter("elixir_cache.cache.get.miss.count",

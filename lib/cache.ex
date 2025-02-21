@@ -151,14 +151,7 @@ defmodule Cache do
 
                   res
 
-                {:ok, value} ->
-                  :telemetry.execute([:elixir_cache, :cache, :get, :hit], %{count: 1}, %{
-                    cache_name: @cache_name,
-                    action: :get,
-                    result: :hit
-                  })
-
-                  {:ok, Cache.TermEncoder.decode(value)}
+                {:ok, value} -> {:ok, Cache.TermEncoder.decode(value)}
 
                 {:error, _} = e ->
                   :telemetry.execute([:elixir_cache, :cache, :get, :error], %{count: 1}, %{
