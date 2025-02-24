@@ -118,11 +118,6 @@ defmodule Cache do
           fn ->
             result = @cache_adapter.put(@cache_name, key, ttl, value, adapter_options())
 
-            :telemetry.execute([:elixir_cache, :cache, :put], %{count: 1}, %{
-              cache_name: @cache_name,
-              action: :put
-            })
-
             {result, %{cache_name: @cache_name}}
           end
         )
@@ -145,8 +140,7 @@ defmodule Cache do
                 {:ok, nil} = res ->
                   :telemetry.execute([:elixir_cache, :cache, :get, :miss], %{count: 1}, %{
                     cache_name: @cache_name,
-                    action: :get,
-                    result: :miss
+                    action: :get
                   })
 
                   res
@@ -156,8 +150,7 @@ defmodule Cache do
                 {:error, _} = e ->
                   :telemetry.execute([:elixir_cache, :cache, :get, :error], %{count: 1}, %{
                     cache_name: @cache_name,
-                    action: :get,
-                    result: :error
+                    action: :get
                   })
 
                   e
@@ -176,11 +169,6 @@ defmodule Cache do
           %{cache_name: @cache_name},
           fn ->
             result = @cache_adapter.delete(@cache_name, key, adapter_options())
-
-            :telemetry.execute([:elixir_cache, :cache, :delete], %{count: 1}, %{
-              cache_name: @cache_name,
-              action: :delete
-            })
 
             {result, %{cache_name: @cache_name}}
           end

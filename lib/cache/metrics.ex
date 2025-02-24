@@ -1,4 +1,4 @@
-if Mix.env() != :test or Code.ensure_loaded?(:elixir_cache) do
+if Code.ensure_loaded?(:prometheus_telemetry) do
   defmodule Cache.Metrics do
     @moduledoc """
     Add the following metrics for elixir_cache:
@@ -85,7 +85,7 @@ if Mix.env() != :test or Code.ensure_loaded?(:elixir_cache) do
     end
 
     defp extract_cache_metadata(metadata) do
-      Map.take(metadata, [:cache_name, :action, :result, :duration])
+      Map.take(metadata, [:cache_name, :action, :duration])
     end
   end
 end
