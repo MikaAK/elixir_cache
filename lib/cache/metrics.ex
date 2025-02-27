@@ -30,14 +30,14 @@ if Code.ensure_loaded?(:prometheus_telemetry) do
           event_name: [:elixir_cache, :cache, :get, :miss],
           measurement: :count,
           description: "Cache miss count",
-          tags: [:cache_name, :action, :result],
+          tags: [:cache_name, :action],
           tag_values: &extract_cache_metadata/1
         ),
         counter("elixir_cache.cache.get.error.count",
           event_name: [:elixir_cache, :cache, :get, :error],
           measurement: :count,
           description: "Cache error count",
-          tags: [:cache_name, :action, :result],
+          tags: [:cache_name, :action],
           tag_values: &extract_cache_metadata/1
         ),
         counter("elixir_cache.cache.put.count",
