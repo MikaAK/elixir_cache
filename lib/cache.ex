@@ -116,7 +116,14 @@ defmodule Cache do
           [:elixir_cache, :cache, :put],
           %{cache_name: @cache_name},
           fn ->
-            result = @cache_adapter.put(@cache_name, key, ttl, value, adapter_options())
+            result = with {:error, error} = e <- @cache_adapter.put(@cache_name, key, ttl, value, adapter_options()) do
+              :telemetry.execute([:elixir_cache, :cache, :put, :error], %{count: 1}, %{
+                cache_name: @cache_name,
+                error: error
+              })
+
+              e
+            end
 
             {result, %{cache_name: @cache_name}}
           end
@@ -130,27 +137,21 @@ defmodule Cache do
           [:elixir_cache, :cache, :get],
           %{cache_name: @cache_name},
           fn ->
-            :telemetry.execute([:elixir_cache, :cache, :get], %{count: 1}, %{
-              cache_name: @cache_name,
-              action: :get
-            })
-
             result =
               case @cache_adapter.get(@cache_name, key, adapter_options()) do
                 {:ok, nil} = res ->
                   :telemetry.execute([:elixir_cache, :cache, :get, :miss], %{count: 1}, %{
-                    cache_name: @cache_name,
-                    action: :get
+                    cache_name: @cache_name
                   })
 
                   res
 
                 {:ok, value} -> {:ok, Cache.TermEncoder.decode(value)}
 
-                {:error, _} = e ->
+                {:error, error} = e ->
                   :telemetry.execute([:elixir_cache, :cache, :get, :error], %{count: 1}, %{
                     cache_name: @cache_name,
-                    action: :get
+                    error: error
                   })
 
                   e
@@ -168,7 +169,14 @@ defmodule Cache do
           [:elixir_cache, :cache, :delete],
           %{cache_name: @cache_name},
           fn ->
-            result = @cache_adapter.delete(@cache_name, key, adapter_options())
+            result = with {:error, error} = e <- @cache_adapter.delete(@cache_name, key, adapter_options()) do
+              :telemetry.execute([:elixir_cache, :cache, :delete, :error], %{count: 1}, %{
+                cache_name: @cache_name,
+                error: error
+              })
+
+              e
+            end
 
             {result, %{cache_name: @cache_name}}
           end
