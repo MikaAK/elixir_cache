@@ -10,7 +10,9 @@ defmodule Cache do
 
   @callback opts_definition() :: Keyword.t()
 
-  @callback start_link(cache_opts :: Keyword.t()) :: {:ok, pid()} | {:error, {:already_started, pid()} | {:shutdown, term()} | term()} | :ignore
+  @callback start_link(
+    cache_opts :: Keyword.t()
+  ) :: {:ok, pid()} | {:error, {:already_started, pid()} | {:shutdown, term()} | term()} | :ignore
 
   @callback put(cache_name :: atom, key :: atom | String.t(), ttl :: pos_integer, value :: any) ::
               :ok | ErrorMessage.t()
@@ -112,22 +114,75 @@ defmodule Cache do
         value = Cache.TermEncoder.encode(value, @compression_level)
         key = maybe_sandbox_key(key)
 
-        @cache_adapter.put(@cache_name, key, ttl, value, adapter_options())
+        :telemetry.span(
+          [:elixir_cache, :cache, :put],
+          %{cache_name: @cache_name},
+          fn ->
+            result = with {:error, error} = e <- @cache_adapter.put(@cache_name, key, ttl, value, adapter_options()) do
+              :telemetry.execute([:elixir_cache, :cache, :put, :error], %{count: 1}, %{
+                cache_name: @cache_name,
+                error: error
+              })
+
+              e
+            end
+
+            {result, %{cache_name: @cache_name}}
+          end
+        )
       end
 
       def get(key) do
         key = maybe_sandbox_key(key)
 
-        with {:ok, value} when not is_nil(value) <-
-               @cache_adapter.get(@cache_name, key, adapter_options()) do
-          {:ok, Cache.TermEncoder.decode(value)}
-        end
+        :telemetry.span(
+          [:elixir_cache, :cache, :get],
+          %{cache_name: @cache_name},
+          fn ->
+            result =
+              case @cache_adapter.get(@cache_name, key, adapter_options()) do
+                {:ok, nil} = res ->
+                  :telemetry.execute([:elixir_cache, :cache, :get, :miss], %{count: 1}, %{
+                    cache_name: @cache_name
+                  })
+
+                  res
+
+                {:ok, value} -> {:ok, Cache.TermEncoder.decode(value)}
+
+                {:error, error} = e ->
+                  :telemetry.execute([:elixir_cache, :cache, :get, :error], %{count: 1}, %{
+                    cache_name: @cache_name,
+                    error: error
+                  })
+
+                  e
+              end
+
+            {result, %{cache_name: @cache_name}}
+          end
+        )
       end
 
       def delete(key) do
         key = maybe_sandbox_key(key)
 
-        @cache_adapter.delete(@cache_name, key, adapter_options())
+        :telemetry.span(
+          [:elixir_cache, :cache, :delete],
+          %{cache_name: @cache_name},
+          fn ->
+            result = with {:error, error} = e <- @cache_adapter.delete(@cache_name, key, adapter_options()) do
+              :telemetry.execute([:elixir_cache, :cache, :delete, :error], %{count: 1}, %{
+                cache_name: @cache_name,
+                error: error
+              })
+
+              e
+            end
+
+            {result, %{cache_name: @cache_name}}
+          end
+        )
       end
 
       def get_or_create(key, fnc) do
