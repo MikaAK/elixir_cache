@@ -112,22 +112,67 @@ defmodule Cache do
         value = Cache.TermEncoder.encode(value, @compression_level)
         key = maybe_sandbox_key(key)
 
-        @cache_adapter.put(@cache_name, key, ttl, value, adapter_options())
+        :telemetry.span(
+          [:elixir_cache, :cache, :put],
+          %{cache_name: @cache_name},
+          fn ->
+            result = @cache_adapter.put(@cache_name, key, ttl, value, adapter_options())
+
+            {result, %{cache_name: @cache_name}}
+          end
+        )
       end
 
       def get(key) do
         key = maybe_sandbox_key(key)
 
-        with {:ok, value} when not is_nil(value) <-
-               @cache_adapter.get(@cache_name, key, adapter_options()) do
-          {:ok, Cache.TermEncoder.decode(value)}
-        end
+        :telemetry.span(
+          [:elixir_cache, :cache, :get],
+          %{cache_name: @cache_name},
+          fn ->
+            :telemetry.execute([:elixir_cache, :cache, :get], %{count: 1}, %{
+              cache_name: @cache_name,
+              action: :get
+            })
+
+            result =
+              case @cache_adapter.get(@cache_name, key, adapter_options()) do
+                {:ok, nil} = res ->
+                  :telemetry.execute([:elixir_cache, :cache, :get, :miss], %{count: 1}, %{
+                    cache_name: @cache_name,
+                    action: :get
+                  })
+
+                  res
+
+                {:ok, value} -> {:ok, Cache.TermEncoder.decode(value)}
+
+                {:error, _} = e ->
+                  :telemetry.execute([:elixir_cache, :cache, :get, :error], %{count: 1}, %{
+                    cache_name: @cache_name,
+                    action: :get
+                  })
+
+                  e
+              end
+
+            {result, %{cache_name: @cache_name}}
+          end
+        )
       end
 
       def delete(key) do
         key = maybe_sandbox_key(key)
 
-        @cache_adapter.delete(@cache_name, key, adapter_options())
+        :telemetry.span(
+          [:elixir_cache, :cache, :delete],
+          %{cache_name: @cache_name},
+          fn ->
+            result = @cache_adapter.delete(@cache_name, key, adapter_options())
+
+            {result, %{cache_name: @cache_name}}
+          end
+        )
       end
 
       def get_or_create(key, fnc) do
