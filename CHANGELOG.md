@@ -1,3 +1,6 @@
+# 0.3.7
+- feat: add metrics module
+
 # 0.3.6
 - chore: fix child_spec type
 
