@@ -43,7 +43,10 @@ defmodule CacheTest do
       opts: []
   end
 
-  @adapters [TestCache.Redis, TestCache.DETS, TestCache.ETS, TestCache.Agent, TestCache.ConCache, TestCache.DirtyConCache]
+  @adapters [
+    TestCache.Redis, TestCache.DETS, TestCache.ETS,
+    TestCache.Agent, TestCache.ConCache, TestCache.DirtyConCache
+  ]
 
   for adapter <- @adapters do
     describe "#{adapter} &get/1 & &put/2 & &delete/1" do

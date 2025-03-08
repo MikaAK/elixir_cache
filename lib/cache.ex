@@ -10,7 +10,9 @@ defmodule Cache do
 
   @callback opts_definition() :: Keyword.t()
 
-  @callback start_link(cache_opts :: Keyword.t()) :: {:ok, pid()} | {:error, {:already_started, pid()} | {:shutdown, term()} | term()} | :ignore
+  @callback start_link(
+    cache_opts :: Keyword.t()
+  ) :: {:ok, pid()} | {:error, {:already_started, pid()} | {:shutdown, term()} | term()} | :ignore
 
   @callback put(cache_name :: atom, key :: atom | String.t(), ttl :: pos_integer, value :: any) ::
               :ok | ErrorMessage.t()
