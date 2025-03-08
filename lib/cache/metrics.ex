@@ -1,4 +1,4 @@
-if Code.ensure_loaded?(PrometheusTelemetry) do
+if Application.ensure_loaded(:prometheus_telemetry) === :ok do
   defmodule Cache.Metrics do
     @moduledoc """
     Add the following metrics for elixir_cache:
