@@ -104,7 +104,7 @@ if Application.ensure_loaded(:prometheus_telemetry) === :ok do
       metadata
       |> Map.take([:error, :cache_name])
       |> Map.update(:error, "unknown", fn
-        %ErrorMessage{code: code, message: error} -> "code}: #{error}"
+        %ErrorMessage{code: code, message: error} -> "#{code}: #{error}"
         reason when is_atom(reason) -> to_string(reason)
         reason when is_binary(reason) -> reason
         _ -> "unknown"
