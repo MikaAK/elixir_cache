@@ -189,6 +189,7 @@ defmodule Cache.Sandbox do
     end)
   end
 
+  # Redis Compatibility
   def pipeline(_cache_name, _commands, _opts) do
     raise "Not Implemented"
   end
@@ -205,11 +206,101 @@ defmodule Cache.Sandbox do
     raise "Not Implemented"
   end
 
-  def scan(_cache_name, _scan_opts, _opts) do
+  def scan(cache_name, _scan_opts, _opts) do
+    Agent.get(cache_name, fn state ->
+      {:ok, Map.keys(state)}
+    end)
+  end
+
+  def hash_scan(cache_name, key, _scan_opts, _opts) do
+    Agent.get(cache_name, fn state ->
+      case Map.get(state, key) do
+        nil -> {:ok, []}
+        map when is_map(map) -> {:ok, Map.keys(map)}
+        _ -> {:ok, []}
+      end
+    end)
+  end
+
+  # ETS & DETS Compatibility
+  def member(cache_name, key) do
+    Agent.get(cache_name, fn state ->
+      Map.has_key?(state, key)
+    end)
+  end
+
+  def update_counter(cache_name, key, {_pos, incr}) do
+    Agent.get_and_update(cache_name, fn state ->
+      current_value = state[key] || 0
+      new_value = current_value + incr
+      {new_value, Map.put(state, key, new_value)}
+    end)
+  end
+
+  def insert_raw(cache_name, data) when is_tuple(data) do
+    {key, value} = data
+    Agent.update(cache_name, fn state ->
+      Map.put(state, key, value)
+    end)
+
+    true
+  end
+
+  def insert_raw(cache_name, data) when is_list(data) do
+    Agent.update(cache_name, fn state ->
+      Enum.reduce(data, state, fn {key, value}, acc ->
+        Map.put(acc, key, value)
+      end)
+    end)
+
+    true
+  end
+
+  def match_object(_cache_name, _pattern) do
     raise "Not Implemented"
   end
 
-  def hash_scan(_cache_name, _key, _scan_opts, _opts) do
+  def match_object(_cache_name, _pattern, _limit) do
+    raise "Not Implemented"
+  end
+
+  def select(_cache_name, _match_spec) do
+    raise "Not Implemented"
+  end
+
+  def select(_cache_name, _match_spec, _limit) do
+    raise "Not Implemented"
+  end
+
+  def info(_cache_name) do
+    raise "Not Implemented"
+  end
+
+  def info(_cache_name, _item) do
+    raise "Not Implemented"
+  end
+
+  def select_delete(_cache_name, _match_spec) do
+    raise "Not Implemented"
+  end
+
+  def match_delete(_cache_name, _pattern) do
+    raise "Not Implemented"
+  end
+
+  def to_dets(_cache_name, _dets_table) do
+    raise "Not Implemented"
+  end
+
+  def from_dets(_cache_name, _dets_table) do
+    raise "Not Implemented"
+  end
+
+  def to_ets(_cache_name) do
+    raise "Not Implemented"
+  end
+
+  def from_ets(_cache_name, _ets_table) do
     raise "Not Implemented"
   end
 
@@ -261,12 +352,12 @@ defmodule Cache.Sandbox do
 
   defp serialize_path_and_get_value(cache_name, key, path) do
     path = JSON.serialize_path(path)
-      Agent.get(cache_name, fn state ->
-        case get_in(state, [key | String.split(path, ".")]) do
-          nil -> {:error, ErrorMessage.not_found("ERR Path '$.#{path}' does not exist")}
-          value -> {:ok, value}
-        end
-      end)
+    Agent.get(cache_name, fn state ->
+      case get_in(state, [key | String.split(path, ".")]) do
+        nil -> {:error, ErrorMessage.not_found("ERR Path '$.#{path}' does not exist")}
+        value -> {:ok, value}
+      end
+    end)
   end
 
   defp enum_length(m) when is_map(m), do: m |> Map.to_list() |> enum_length()
