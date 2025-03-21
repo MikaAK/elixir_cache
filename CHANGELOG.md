@@ -1,3 +1,6 @@
+# 0.3.8
+- feat: add functions for ets & dets caches
+
 # 0.3.7
 - feat: add metrics module
 
