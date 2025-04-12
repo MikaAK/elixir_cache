@@ -219,6 +219,37 @@ defmodule Cache do
     Supervisor.init(cache_children, strategy: :one_for_one)
   end
 
+  @doc """
+  Retrieves a value from the cache if it exists, or executes a function to create and store it.  
+  
+  This is a convenience function implementing the common "get or create" pattern for caches. 
+  It attempts to fetch a value from the cache first, and only if the value doesn't exist, 
+  it will execute the provided function to generate the value and store it in the cache.
+  
+  ## Parameters
+  
+  - `cache` - The cache module to use (must implement the Cache behaviour)
+  - `key` - The key to look up or create
+  - `fnc` - A function that returns `{:ok, value}` or `{:error, reason}`
+  
+  ## Returns
+  
+  - `{:ok, value}` - The value from cache or newly created value
+  - `{:error, reason}` - If an error occurred during retrieval or creation
+  
+  ## Examples
+  
+  ```elixir
+  Cache.get_or_create(MyApp.Cache, "user:123", fn ->
+    case UserRepo.get(123) do
+      nil -> {:error, ErrorMessage.not_found("User not found")}
+      user -> {:ok, user}
+    end
+  end)
+  ```
+  """
+  @spec get_or_create(module(), atom() | String.t(), (-> {:ok, any()} | {:error, any()})) :: 
+          {:ok, any()} | {:error, any()}
   def get_or_create(cache, key, fnc) do
     case cache.get(key) do
       {:ok, nil} ->

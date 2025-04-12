@@ -71,9 +71,29 @@ defmodule ElixirCache.MixProject do
 
   defp docs do
     [
-      main: "Cache",
+      main: "introduction",
       source_url: "https://github.com/mikaak/elixir_cache",
-
+      extras: [
+        "guides/introduction.md",
+        "guides/tutorials/installation.md",
+        "guides/tutorials/basic_operations.md",
+        "guides/tutorials/advanced_techniques.md",
+        "guides/how-to/choosing_adapter.md",
+        "guides/how-to/redis_setup.md",
+        "guides/how-to/testing_with_cache.md",
+        "guides/how-to/using_metrics.md",
+        "guides/explanation/architecture.md",
+        "guides/reference/api.md",
+        "CHANGELOG.md"
+      ],
+      groups_for_extras: [
+        "Getting Started": ["guides/introduction.md"],
+        "Tutorials": [~r{guides/tutorials/.?}],
+        "How-to Guides": [~r{guides/how-to/.?}],
+        "Explanation": [~r{guides/explanation/.?}],
+        "Reference": [~r{guides/reference/.?}],
+        "Changelog": ["CHANGELOG.md"]
+      ],
       groups_for_modules: [
         "Main": [Cache],
 
@@ -88,6 +108,11 @@ defmodule ElixirCache.MixProject do
         "Test Utils": [
           Cache.Sandbox,
           Cache.SandboxRegistry
+        ],
+
+        "Internal": [
+          Cache.TermEncoder,
+          Cache.Metrics
         ]
       ]
     ]

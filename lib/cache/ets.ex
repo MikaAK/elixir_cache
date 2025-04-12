@@ -28,10 +28,34 @@ defmodule Cache.ETS do
   ]
 
   @moduledoc """
-  ETS adapter so that we can use ets as a cache
-
+  ETS (Erlang Term Storage) adapter for high-performance in-memory caching.
+  
+  This adapter provides a fast, process-independent cache using Erlang's built-in ETS tables.
+  It's ideal for applications requiring low-latency access to cached data within a single node.
+  
+  ## Features
+  
+  * In-memory storage with configurable concurrency options
+  * Direct access to ETS-specific operations
+  * Very high performance for read and write operations
+  * Support for atomic counter operations
+  
   ## Options
   #{NimbleOptions.docs(@opts_definition)}
+  
+  ## Example
+  
+  ```elixir
+  defmodule MyApp.Cache do
+    use Cache,
+      adapter: Cache.ETS,
+      name: :my_app_cache,
+      opts: [
+        read_concurrency: true,
+        write_concurrency: true
+      ]
+  end
+  ```
   """
 
   use Task, restart: :permanent

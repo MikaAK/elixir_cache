@@ -23,10 +23,38 @@ defmodule Cache.Redis do
   ]
 
   @moduledoc """
-  This module interacts with redis using a pool of connections
-
+  Redis adapter for distributed caching with ElixirCache.
+  
+  This adapter provides a connection pool to Redis, enabling distributed caching
+  across multiple nodes or services. It supports the standard Cache behavior plus
+  additional Redis-specific operations like hash manipulation, JSON operations, and sets.
+  
+  ## Features
+  
+  * Connection pooling for efficient Redis access
+  * Support for Redis URI connection strings
+  * Hash operations for storing field-value pairs within a key
+  * JSON operations for working with complex nested data structures
+  * Set operations for managing collections
+  * Direct access to Redis commands via pipeline and command functions
+  
   ## Options
   #{NimbleOptions.docs(@opts_definition)}
+  
+  ## Example
+  
+  ```elixir
+  defmodule MyApp.RedisCache do
+    use Cache,
+      adapter: Cache.Redis,
+      name: :my_app_redis_cache,
+      opts: [
+        uri: "redis://localhost:6379",
+        size: 10,
+        max_overflow: 5
+      ]
+  end
+  ```
   """
 
   alias Cache.Redis
@@ -95,6 +123,23 @@ defmodule Cache.Redis do
 
       def json_array_append(key, path, value_or_values) do
         @cache_adapter.json_array_append(@cache_name, key, path, value_or_values, adapter_options())
+      end
+
+      def smembers(key, opts) do
+        @cache_adapter.smembers(
+          @cache_name,
+          key,
+          Keyword.merge(adapter_options(), opts)
+        )
+      end
+
+      def sadd(key, value, opts \\ []) do
+        @cache_adapter.sadd(
+          @cache_name,
+          key,
+          value,
+          Keyword.merge(adapter_options(), opts)
+        )
       end
 
       def command(command, opts \\ []) do
@@ -223,4 +268,10 @@ defmodule Cache.Redis do
   defdelegate json_array_append(pool_name, key, path, value_or_values, opts \\ []),
     to: Redis.JSON,
     as: :array_append
+
+  defdelegate smembers(pool_name, key, opts),
+    to: Redis.Set
+
+  defdelegate sadd(pool_name, key, value, opts),
+    to: Redis.Set
 end
