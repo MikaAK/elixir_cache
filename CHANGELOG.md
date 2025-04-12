@@ -1,3 +1,6 @@
+# 0.3.10
+- fix: sandbox fix for smembers & sadd
+
 # 0.3.9
 - chore: add docs
 - fix: set fix

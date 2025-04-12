@@ -1,23 +1,23 @@
 defmodule Cache.Sandbox do
   @moduledoc """
   Sandbox adapter for isolated testing of applications using ElixirCache.
-  
+
   This module provides a mock implementation of all cache adapters, allowing tests to run in isolation
   without interfering with each other's data. The sandbox uses a basic `Agent` to store data in memory
   and implements the full range of caching operations supported by all adapters.
-  
+
   ## Features
-  
+
   * Isolated cache namespaces for concurrent testing
   * Support for all standard cache operations
   * Implementation of Redis-specific features like hash and JSON operations
   * Implementation of ETS-specific operations for complete testing compatibility
   * Lightweight in-memory storage for fast test execution
-  
+
   ## Usage
-  
+
   The Sandbox adapter is typically enabled through the `sandbox?` option when defining a cache module:
-  
+
   ```elixir
   defmodule MyApp.TestCache do
     use Cache,
@@ -27,10 +27,10 @@ defmodule Cache.Sandbox do
       sandbox?: Mix.env() == :test
   end
   ```
-  
+
   In your tests, use `Cache.SandboxRegistry.start(MyApp.TestCache)` in the setup block to ensure
   proper isolation between test cases.
-  
+
   > **Note**: This adapter should not be used in production environments.
   """
 
@@ -330,6 +330,14 @@ defmodule Cache.Sandbox do
   end
 
   def from_ets(_cache_name, _ets_table) do
+    raise "Not Implemented"
+  end
+
+  def smembers(_cache_name, _key, _opts \\ []) do
+    raise "Not Implemented"
+  end
+
+  def sadd(_cache_name, _key, _value, _opts \\ []) do
     raise "Not Implemented"
   end
 

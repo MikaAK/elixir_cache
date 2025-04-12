@@ -24,25 +24,25 @@ defmodule Cache.Redis do
 
   @moduledoc """
   Redis adapter for distributed caching with ElixirCache.
-  
+
   This adapter provides a connection pool to Redis, enabling distributed caching
   across multiple nodes or services. It supports the standard Cache behavior plus
   additional Redis-specific operations like hash manipulation, JSON operations, and sets.
-  
+
   ## Features
-  
+
   * Connection pooling for efficient Redis access
   * Support for Redis URI connection strings
   * Hash operations for storing field-value pairs within a key
   * JSON operations for working with complex nested data structures
   * Set operations for managing collections
   * Direct access to Redis commands via pipeline and command functions
-  
+
   ## Options
   #{NimbleOptions.docs(@opts_definition)}
-  
+
   ## Example
-  
+
   ```elixir
   defmodule MyApp.RedisCache do
     use Cache,
