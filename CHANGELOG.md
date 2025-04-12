@@ -1,3 +1,7 @@
+# 0.3.9
+- chore: add docs
+- fix: set fix
+
 # 0.3.8
 - feat: add functions for ets & dets caches
 
