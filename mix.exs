@@ -95,7 +95,7 @@ defmodule ElixirCache.MixProject do
         "Changelog": ["CHANGELOG.md"]
       ],
       groups_for_modules: [
-        "Main": [Cache],
+        "Main": [Cache, Cache.Metrics],
 
         "Adapters": [
           Cache.Agent,
@@ -110,10 +110,7 @@ defmodule ElixirCache.MixProject do
           Cache.SandboxRegistry
         ],
 
-        "Internal": [
-          Cache.TermEncoder,
-          Cache.Metrics
-        ]
+        "Internal": [Cache.TermEncoder]
       ]
     ]
   end

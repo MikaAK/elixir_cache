@@ -1,7 +1,8 @@
 if Application.ensure_loaded(:prometheus_telemetry) === :ok do
   defmodule Cache.Metrics do
     @moduledoc """
-    Add the following metrics for elixir_cache:
+    Add the following metrics for elixir_cache into [prometheus_telmetery](https://hexdocs.pm/prometheus_telemetry),
+    this module will only be included if the library is included:
 
     Metrics included:
       - `elixir_cache.cache.get.count`

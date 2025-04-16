@@ -333,11 +333,11 @@ defmodule Cache.Sandbox do
     raise "Not Implemented"
   end
 
-  def smembers(_cache_name, _key, _opts \\ []) do
+  def smembers(_cache_name, _key, _opts) do
     raise "Not Implemented"
   end
 
-  def sadd(_cache_name, _key, _value, _opts \\ []) do
+  def sadd(_cache_name, _key, _value, _opts) do
     raise "Not Implemented"
   end
 
