@@ -70,15 +70,15 @@ defmodule Cache.Redis do
       end
 
       def hash_scan(key, scan_opts \\ []) do
-        @cache_adapter.hash_scan(@cache_name, key, scan_opts, adapter_options())
+        @cache_adapter.hash_scan(@cache_name, maybe_sandbox_key(key), scan_opts, adapter_options())
       end
 
       def hash_get(key, field) do
-        @cache_adapter.hash_get(@cache_name, key, field, adapter_options())
+        @cache_adapter.hash_get(@cache_name, maybe_sandbox_key(key), field, adapter_options())
       end
 
       def hash_get_all(key) do
-        @cache_adapter.hash_get_all(@cache_name, key, adapter_options())
+        @cache_adapter.hash_get_all(@cache_name, maybe_sandbox_key(key), adapter_options())
       end
 
       def hash_get_many(key_fields) do
@@ -86,7 +86,7 @@ defmodule Cache.Redis do
       end
 
       def hash_set(key, field, value, ttl \\ nil) do
-        @cache_adapter.hash_set(@cache_name, key, field, value, ttl, adapter_options())
+        @cache_adapter.hash_set(@cache_name, maybe_sandbox_key(key), field, value, ttl, adapter_options())
       end
 
       def hash_set_many(keys_fields_values, ttl \\ nil) do
@@ -94,41 +94,41 @@ defmodule Cache.Redis do
       end
 
       def hash_delete(key, field) do
-        @cache_adapter.hash_delete(@cache_name, key, field, adapter_options())
+        @cache_adapter.hash_delete(@cache_name, maybe_sandbox_key(key), field, adapter_options())
       end
 
       def hash_values(key) do
-        @cache_adapter.hash_values(@cache_name, key, adapter_options())
+        @cache_adapter.hash_values(@cache_name, maybe_sandbox_key(key), adapter_options())
       end
 
       def json_get(key, path \\ nil) do
-        @cache_adapter.json_get(@cache_name, key, path, adapter_options())
+        @cache_adapter.json_get(@cache_name, maybe_sandbox_key(key), path, adapter_options())
       end
 
       def json_set(key, path \\ nil, value) do
-        @cache_adapter.json_set(@cache_name, key, path, value, adapter_options())
+        @cache_adapter.json_set(@cache_name, maybe_sandbox_key(key), path, value, adapter_options())
       end
 
       def json_delete(key, path) do
-        @cache_adapter.json_delete(@cache_name, key, path, adapter_options())
+        @cache_adapter.json_delete(@cache_name, maybe_sandbox_key(key), path, adapter_options())
       end
 
       def json_incr(key, path, value \\ 1) do
-        @cache_adapter.json_incr(@cache_name, key, path, value, adapter_options())
+        @cache_adapter.json_incr(@cache_name, maybe_sandbox_key(key), path, value, adapter_options())
       end
 
       def json_clear(key, path) do
-        @cache_adapter.json_clear(@cache_name, key, path, adapter_options())
+        @cache_adapter.json_clear(@cache_name, maybe_sandbox_key(key), path, adapter_options())
       end
 
       def json_array_append(key, path, value_or_values) do
-        @cache_adapter.json_array_append(@cache_name, key, path, value_or_values, adapter_options())
+        @cache_adapter.json_array_append(@cache_name, maybe_sandbox_key(key), path, value_or_values, adapter_options())
       end
 
       def smembers(key, opts) do
         @cache_adapter.smembers(
           @cache_name,
-          key,
+          maybe_sandbox_key(key),
           Keyword.merge(adapter_options(), opts)
         )
       end
@@ -136,7 +136,7 @@ defmodule Cache.Redis do
       def sadd(key, value, opts \\ []) do
         @cache_adapter.sadd(
           @cache_name,
-          key,
+          maybe_sandbox_key(key),
           value,
           Keyword.merge(adapter_options(), opts)
         )
