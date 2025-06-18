@@ -1,4 +1,7 @@
 # 0.3.10
+- fix: redis
+
+# 0.3.10
 - fix: sandbox fix for smembers & sadd
 
 # 0.3.9
