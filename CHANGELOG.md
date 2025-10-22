@@ -1,4 +1,7 @@
-# 0.3.10
+# 0.3.12
+- chore: fix warnings
+
+# 0.3.11
 - fix: redis
 
 # 0.3.10
