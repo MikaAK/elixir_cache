@@ -4,23 +4,19 @@ defmodule Cache.ETS do
       type: :boolean,
       doc: "Enable write concurrency"
     ],
-
     read_concurrency: [
       type: :boolean,
       doc: "Enable read concurrency"
     ],
-
     decentralized_counters: [
       type: :boolean,
       doc: "Use decentralized counters"
     ],
-
     type: [
       type: {:in, [:bag, :duplicate_bag, :set]},
       default: :set,
       doc: "Data type of ETS cache"
     ],
-
     compressed: [
       type: :boolean,
       doc: "Enable ets compression"

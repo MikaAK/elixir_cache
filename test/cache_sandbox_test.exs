@@ -1,5 +1,4 @@
 defmodule CacheSandboxTest do
-
   use ExUnit.Case, async: true
 
   defmodule TestCache do
@@ -18,7 +17,6 @@ defmodule CacheSandboxTest do
     some_empty_array: [],
     some_map: %{one: 1, two: 2, three: 3, four: 4}
   }
-
 
   setup do
     Cache.SandboxRegistry.start(TestCache)
@@ -39,25 +37,28 @@ defmodule CacheSandboxTest do
     end
   end
 
- describe "&json_get/1" do
+  describe "&json_get/1" do
     test "gets full json item", %{key: key} do
-      assert {:ok, %{
-        "some_integer" => 1234,
-        "some_array" => [1, 2, 3, 4],
-        "some_empty_array" => [],
-        "some_map" => %{"one" => 1, "two" => 2, "three" => 3, "four" => 4}
-      }} === TestCache.json_get(key)
+      assert {:ok,
+              %{
+                "some_integer" => 1234,
+                "some_array" => [1, 2, 3, 4],
+                "some_empty_array" => [],
+                "some_map" => %{"one" => 1, "two" => 2, "three" => 3, "four" => 4}
+              }} === TestCache.json_get(key)
     end
 
     test "returns tuple with :ok and nil if key is not found" do
       assert {:ok, nil} === TestCache.json_get("non_existing")
     end
-end
+  end
 
   describe "&json_get/2" do
     test "gets an item at path", %{key: key} do
       assert {:ok, @json_test_value.some_map.one} === TestCache.json_get(key, [:some_map, :one])
-      assert {:ok, Enum.at(@json_test_value.some_array, 0)} === TestCache.json_get(key, [:some_array, 0])
+
+      assert {:ok, Enum.at(@json_test_value.some_array, 0)} ===
+               TestCache.json_get(key, [:some_array, 0])
     end
 
     test "returns :error tuple if path not found" do
@@ -67,7 +68,6 @@ end
                 code: :not_found,
                 details: nil
               }} === TestCache.json_get(@cache_key, ["c.d"])
-
     end
   end
 
@@ -82,7 +82,7 @@ end
     test "updates a json path", %{key: key} do
       assert :ok = TestCache.json_set(key, [:some_map, :one], 4)
       assert {:ok, 4} = TestCache.json_get(key, [:some_map, :one])
-      assert :ok =  TestCache.json_set(key, ["some_map.one"], 5)
+      assert :ok = TestCache.json_set(key, ["some_map.one"], 5)
       assert {:ok, 5} = TestCache.json_get(key, [:some_map, :one])
     end
 
@@ -126,11 +126,14 @@ end
     test "accepts map and list values", %{key: key} do
       assert {:ok, [1, 1]} = TestCache.hash_set_many([{key, [{"some_key", "some_value"}]}], 1_000)
 
-      assert {:ok, [1, 1]} = TestCache.hash_set_many([{key, %{"some_key" => "some_value"}}], 1_000)
+      assert {:ok, [1, 1]} =
+               TestCache.hash_set_many([{key, %{"some_key" => "some_value"}}], 1_000)
 
-      assert {:ok, [1, 1]} = TestCache.hash_set_many(%{key => [{"some_key", "some_value"}]}, 1_000)
+      assert {:ok, [1, 1]} =
+               TestCache.hash_set_many(%{key => [{"some_key", "some_value"}]}, 1_000)
 
-      assert {:ok, [1, 1]} = TestCache.hash_set_many(%{key => %{"some_key" => "some_value"}}, 1_000)
+      assert {:ok, [1, 1]} =
+               TestCache.hash_set_many(%{key => %{"some_key" => "some_value"}}, 1_000)
     end
   end
 end

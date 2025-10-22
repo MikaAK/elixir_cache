@@ -26,14 +26,12 @@ if Application.ensure_loaded(:prometheus_telemetry) === :ok do
           description: "Total cache calls",
           tags: [:cache_name]
         ),
-
         counter("elixir_cache.cache.get.miss.count",
           event_name: [:elixir_cache, :cache, :get, :miss],
           measurement: :count,
           description: "Cache miss count",
           tags: [:cache_name]
         ),
-
         counter("elixir_cache.cache.get.error.count",
           event_name: [:elixir_cache, :cache, :get, :error],
           measurement: :count,
@@ -41,14 +39,12 @@ if Application.ensure_loaded(:prometheus_telemetry) === :ok do
           tags: [:cache_name, :error],
           tag_values: &extract_error_metadata/1
         ),
-
         counter("elixir_cache.cache.put.count",
           event_name: [:elixir_cache, :cache, :put],
           measurement: :count,
           description: "Cache put count",
           tags: [:cache_name]
         ),
-
         counter("elixir_cache.cache.put.error.count",
           event_name: [:elixir_cache, :cache, :put, :error],
           measurement: :count,
@@ -56,14 +52,12 @@ if Application.ensure_loaded(:prometheus_telemetry) === :ok do
           tags: [:cache_name, :error],
           tag_values: &extract_error_metadata/1
         ),
-
         counter("elixir_cache.cache.delete.count",
           event_name: [:elixir_cache, :cache, :delete],
           measurement: :count,
           description: "Cache delete count",
           tags: [:cache_name]
         ),
-
         counter("elixir_cache.cache.delete.error.count",
           event_name: [:elixir_cache, :cache, :delete, :error],
           measurement: :count,
@@ -71,7 +65,6 @@ if Application.ensure_loaded(:prometheus_telemetry) === :ok do
           tags: [:cache_name, :error],
           tag_values: &extract_error_metadata/1
         ),
-
         distribution("elixir_cache.cache.get.duration.millisecond",
           event_name: [:elixir_cache, :cache, :get, :stop],
           measurement: :duration,
@@ -80,7 +73,6 @@ if Application.ensure_loaded(:prometheus_telemetry) === :ok do
           unit: @duration_unit,
           reporter_options: [buckets: @buckets]
         ),
-
         distribution("elixir_cache.cache.put.duration.millisecond",
           event_name: [:elixir_cache, :cache, :put, :stop],
           measurement: :duration,
@@ -89,7 +81,6 @@ if Application.ensure_loaded(:prometheus_telemetry) === :ok do
           unit: @duration_unit,
           reporter_options: [buckets: @buckets]
         ),
-
         distribution("elixir_cache.cache.delete.duration.millisecond",
           event_name: [:elixir_cache, :cache, :delete, :stop],
           measurement: :duration,

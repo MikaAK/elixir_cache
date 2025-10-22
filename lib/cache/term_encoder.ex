@@ -63,6 +63,7 @@ defmodule Cache.TermEncoder do
   end
 
   def decode_json(nil), do: nil
+
   def decode_json(json) do
     case Jason.decode(json) do
       {:ok, data} -> data

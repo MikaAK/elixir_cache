@@ -2,12 +2,13 @@ defmodule Cache.ConCache do
   @opts_definition [
     acquire_lock_timeout: [type: :pos_integer, default: 5000],
     touch_on_read: [type: :boolean, default: false],
-
     global_ttl: [type: {:or, [:pos_integer, {:in, [:infinity]}]}, default: :timer.minutes(30)],
     ttl_check_interval: [type: {:or, [:pos_integer, {:in, [false]}]}, default: :timer.minutes(1)],
-
-    dirty?: [type: :boolean, default: true, doc: "Use dirty_put instead of locking to put, enabled by default"],
-
+    dirty?: [
+      type: :boolean,
+      default: true,
+      doc: "Use dirty_put instead of locking to put, enabled by default"
+    ],
     ets_options: [
       type: {:custom, Cache.ETS, :opts_definition, []},
       doc: "https://www.erlang.org/doc/man/ets.html#new-2"
@@ -24,25 +25,26 @@ defmodule Cache.ConCache do
   @behaviour Cache
 
   @type opts :: [
-    name: atom,
-    pid: pid,
-    global_ttl: non_neg_integer | :infinity,
-    acquire_lock_timeout: pos_integer,
-    touch_on_read: boolean | nil,
-    ttl_check_interval: non_neg_integer() | false,
-    ets_options: [ets_option()]
-  ]
+          name: atom,
+          pid: pid,
+          global_ttl: non_neg_integer | :infinity,
+          acquire_lock_timeout: pos_integer,
+          touch_on_read: boolean | nil,
+          ttl_check_interval: non_neg_integer() | false,
+          ets_options: [ets_option()]
+        ]
 
-  @type ets_option :: :named_table
-                    | :compressed
-                    | {:heir, pid()}
-                    | {:write_concurrency, boolean()}
-                    | {:read_concurrency, boolean()}
-                    | :ordered_set
-                    | :set
-                    | :bag
-                    | :duplicate_bag
-                    | {:name, atom()}
+  @type ets_option ::
+          :named_table
+          | :compressed
+          | {:heir, pid()}
+          | {:write_concurrency, boolean()}
+          | {:read_concurrency, boolean()}
+          | :ordered_set
+          | :set
+          | :bag
+          | :duplicate_bag
+          | {:name, atom()}
 
   defmacro __using__(_opts) do
     quote do
@@ -63,12 +65,12 @@ defmodule Cache.ConCache do
   def start_link(opts) do
     cache_opts =
       opts
-        |> Keyword.delete(:dirty?)
-        |> Keyword.update(
-          :ets_options,
-          [:named_table, name: opts[:name]],
-          &[:named_table, {:name, opts[:name]} | &1]
-        )
+      |> Keyword.delete(:dirty?)
+      |> Keyword.update(
+        :ets_options,
+        [:named_table, name: opts[:name]],
+        &[:named_table, {:name, opts[:name]} | &1]
+      )
 
     ConCache.start_link(cache_opts)
   end
@@ -130,4 +132,3 @@ defmodule Cache.ConCache do
     ConCache.dirty_get_or_store(cache_name, key, store_fun)
   end
 end
-

@@ -116,6 +116,9 @@ defmodule Cache.Redis.Global do
   end
 
   defp handle_response({:error, error}) do
-    {:error, ErrorMessage.internal_server_error("Internal server error", %{error: inspect(error)})}
+    {
+      :error,
+      ErrorMessage.internal_server_error("Internal server error", %{error: inspect(error)})
+    }
   end
 end

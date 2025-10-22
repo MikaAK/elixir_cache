@@ -49,7 +49,7 @@ defmodule Cache.DETSTest do
       TestDETSCache.insert_raw({:key1, "value1"})
       TestDETSCache.insert_raw({:key2, "value2"})
 
-      match_spec = [{{:key1, :_}, [], [:'$_']}]
+      match_spec = [{{:key1, :_}, [], [:"$_"]}]
       result = TestDETSCache.select(match_spec)
       assert result === [{:key1, "value1"}]
     end
@@ -105,7 +105,8 @@ defmodule Cache.DETSTest do
       assert TestDETSCache.match_object({:counter, :_}) === [{:counter, 1}]
 
       result = TestDETSCache.update_counter(:counter, {2, 5})
-      assert result === 6  # 1 + 5
+      # 1 + 5
+      assert result === 6
     end
   end
 

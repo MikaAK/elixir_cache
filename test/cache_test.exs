@@ -44,8 +44,12 @@ defmodule CacheTest do
   end
 
   @adapters [
-    TestCache.Redis, TestCache.DETS, TestCache.ETS,
-    TestCache.Agent, TestCache.ConCache, TestCache.DirtyConCache
+    TestCache.Redis,
+    TestCache.DETS,
+    TestCache.ETS,
+    TestCache.Agent,
+    TestCache.ConCache,
+    TestCache.DirtyConCache
   ]
 
   for adapter <- @adapters do
@@ -124,9 +128,10 @@ defmodule CacheTest do
 
         Process.sleep(50)
 
-        assert {:ok, value} === cache_module.get_or_create(test_key, fn ->
-          raise "I shouldn't be called"
-        end)
+        assert {:ok, value} ===
+                 cache_module.get_or_create(test_key, fn ->
+                   raise "I shouldn't be called"
+                 end)
 
         assert {:ok, value} === cache_module.get(test_key)
       end
@@ -138,9 +143,10 @@ defmodule CacheTest do
 
         assert {:ok, nil} = cache_module.get(test_key)
 
-        assert {:ok, value} === cache_module.get_or_create(test_key, fn ->
-          {:ok, value}
-        end)
+        assert {:ok, value} ===
+                 cache_module.get_or_create(test_key, fn ->
+                   {:ok, value}
+                 end)
 
         Process.sleep(50)
 
@@ -207,28 +213,32 @@ defmodule CacheTest do
     end
 
     test "raises when opts options format is invalid" do
-      assert_raise ArgumentError, ~r/Bad option in adapter module TestCache.RedisRuntimeCallback!/, fn ->
-        Code.compile_string("""
-        defmodule TestCache.RedisRuntimeCallback do
-          use Cache,
-            adapter: Cache.Redis,
-            name: :test_cache_redis,
-            opts: 1234
-        end
-        """)
-      end
+      assert_raise ArgumentError,
+                   ~r/Bad option in adapter module TestCache.RedisRuntimeCallback!/,
+                   fn ->
+                     Code.compile_string("""
+                     defmodule TestCache.RedisRuntimeCallback do
+                       use Cache,
+                         adapter: Cache.Redis,
+                         name: :test_cache_redis,
+                         opts: 1234
+                     end
+                     """)
+                   end
     end
 
     test "raises when no option passed" do
-      assert_raise ArgumentError, ~r/Bad option in adapter module TestCache.RedisRuntimeCallback!/, fn ->
-        Code.compile_string("""
-        defmodule TestCache.RedisRuntimeCallback do
-          use Cache,
-            adapter: Cache.Redis,
-            name: :test_cache_redis
-        end
-        """)
-      end
+      assert_raise ArgumentError,
+                   ~r/Bad option in adapter module TestCache.RedisRuntimeCallback!/,
+                   fn ->
+                     Code.compile_string("""
+                     defmodule TestCache.RedisRuntimeCallback do
+                       use Cache,
+                         adapter: Cache.Redis,
+                         name: :test_cache_redis
+                     end
+                     """)
+                   end
     end
   end
 end
