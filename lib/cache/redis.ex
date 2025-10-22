@@ -5,17 +5,14 @@ defmodule Cache.Redis do
       doc: "The connection uri to redis",
       required: true
     ],
-
     size: [
       type: :pos_integer,
       doc: "The amount of workers in the pool"
     ],
-
     max_overflow: [
       type: :pos_integer,
       doc: "The amount of max overflow the pool can handle"
     ],
-
     strategy: [
       type: {:in, [:fifo, :lifo]},
       doc: "The type of queue to use for poolboy"
@@ -70,7 +67,12 @@ defmodule Cache.Redis do
       end
 
       def hash_scan(key, scan_opts \\ []) do
-        @cache_adapter.hash_scan(@cache_name, maybe_sandbox_key(key), scan_opts, adapter_options())
+        @cache_adapter.hash_scan(
+          @cache_name,
+          maybe_sandbox_key(key),
+          scan_opts,
+          adapter_options()
+        )
       end
 
       def hash_get(key, field) do
@@ -86,7 +88,14 @@ defmodule Cache.Redis do
       end
 
       def hash_set(key, field, value, ttl \\ nil) do
-        @cache_adapter.hash_set(@cache_name, maybe_sandbox_key(key), field, value, ttl, adapter_options())
+        @cache_adapter.hash_set(
+          @cache_name,
+          maybe_sandbox_key(key),
+          field,
+          value,
+          ttl,
+          adapter_options()
+        )
       end
 
       def hash_set_many(keys_fields_values, ttl \\ nil) do
@@ -106,7 +115,13 @@ defmodule Cache.Redis do
       end
 
       def json_set(key, path \\ nil, value) do
-        @cache_adapter.json_set(@cache_name, maybe_sandbox_key(key), path, value, adapter_options())
+        @cache_adapter.json_set(
+          @cache_name,
+          maybe_sandbox_key(key),
+          path,
+          value,
+          adapter_options()
+        )
       end
 
       def json_delete(key, path) do
@@ -114,7 +129,13 @@ defmodule Cache.Redis do
       end
 
       def json_incr(key, path, value \\ 1) do
-        @cache_adapter.json_incr(@cache_name, maybe_sandbox_key(key), path, value, adapter_options())
+        @cache_adapter.json_incr(
+          @cache_name,
+          maybe_sandbox_key(key),
+          path,
+          value,
+          adapter_options()
+        )
       end
 
       def json_clear(key, path) do
@@ -122,7 +143,13 @@ defmodule Cache.Redis do
       end
 
       def json_array_append(key, path, value_or_values) do
-        @cache_adapter.json_array_append(@cache_name, maybe_sandbox_key(key), path, value_or_values, adapter_options())
+        @cache_adapter.json_array_append(
+          @cache_name,
+          maybe_sandbox_key(key),
+          path,
+          value_or_values,
+          adapter_options()
+        )
       end
 
       def smembers(key, opts) do
@@ -193,7 +220,12 @@ defmodule Cache.Redis do
 
   @impl Cache
   def put(pool_name, key, ttl, value, opts \\ []) do
-    with {:ok, "OK"} <- Redis.Global.command(pool_name, redis_set_command(pool_name, key, ttl, value), opts) do
+    with {:ok, "OK"} <-
+           Redis.Global.command(
+             pool_name,
+             redis_set_command(pool_name, key, ttl, value),
+             opts
+           ) do
       :ok
     end
   end
@@ -223,7 +255,8 @@ defmodule Cache.Redis do
 
   @impl Cache
   def delete(pool_name, key, opts \\ []) do
-    with {:ok, _} <- Redis.Global.command(pool_name, ["DEL", Redis.Global.cache_key(pool_name, key)], opts) do
+    with {:ok, _} <-
+           Redis.Global.command(pool_name, ["DEL", Redis.Global.cache_key(pool_name, key)], opts) do
       :ok
     end
   end
@@ -237,7 +270,6 @@ defmodule Cache.Redis do
   defdelegate command!(pool_name, command, opts \\ []), to: Redis.Global
 
   defdelegate scan(pool_name, scan_opts, opts \\ []), to: Redis.Global
-
 
   defdelegate hash_scan(pool_name, key, scan_opts, opts \\ []), to: Redis.Hash
 

@@ -48,7 +48,7 @@ defmodule Cache.ETSTest do
       TestETSCache.insert_raw({:key1, "value1"})
       TestETSCache.insert_raw({:key2, "value2"})
 
-      match_spec = [{{:key1, :_}, [], [:'$_']}]
+      match_spec = [{{:key1, :_}, [], [:"$_"]}]
       result = TestETSCache.select(match_spec)
       assert result === [{:key1, "value1"}]
     end
@@ -108,7 +108,8 @@ defmodule Cache.ETSTest do
       assert TestETSCache.match_object({:counter, :_}) === [{:counter, 1}]
 
       result = TestETSCache.update_counter(:counter, {2, 5})
-      assert result === 6  # 1 + 5
+      # 1 + 5
+      assert result === 6
     end
   end
 
@@ -132,7 +133,7 @@ defmodule Cache.ETSTest do
     describe "to_dets/2 and from_dets/2" do
       test "converts between ETS and DETS tables" do
         dets_file = "/tmp/test_dets_#{:rand.uniform(1000)}"
-        {:ok, dets_table} = :dets.open_file(:test_dets_table, [file: String.to_charlist(dets_file)])
+        {:ok, dets_table} = :dets.open_file(:test_dets_table, file: String.to_charlist(dets_file))
 
         # Insert test data directly using ETS
         :ets.insert(:test_ets_cache, {:ets_key, "ets_value"})

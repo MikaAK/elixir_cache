@@ -16,7 +16,13 @@ defmodule Cache.Redis.JSON do
   end
 
   def set(pool_name, key, path, value, opts) do
-    json_command(pool_name, key, "SET", [serialize_path(path), TermEncoder.encode_json(value)], opts)
+    json_command(
+      pool_name,
+      key,
+      "SET",
+      [serialize_path(path), TermEncoder.encode_json(value)],
+      opts
+    )
   end
 
   def delete(pool_name, key, path, opts) do
@@ -24,13 +30,14 @@ defmodule Cache.Redis.JSON do
   end
 
   def incr(pool_name, key, path, value, opts) do
-    with {:ok, value} <- json_command(
-      pool_name,
-      key,
-      "NUMINCRBY",
-      [serialize_path(path), to_string(value)],
-      opts
-    ) do
+    with {:ok, value} <-
+           json_command(
+             pool_name,
+             key,
+             "NUMINCRBY",
+             [serialize_path(path), to_string(value)],
+             opts
+           ) do
       {:ok, String.to_integer(value)}
     end
   end
@@ -90,9 +97,13 @@ defmodule Cache.Redis.JSON do
   end
 
   defp json_command(pool_name, key, command, commands, opts) do
-    Redis.Global.command(pool_name, [
-      "JSON.#{command}",
-      Redis.Global.cache_key(pool_name, key) | commands
-    ], opts)
+    Redis.Global.command(
+      pool_name,
+      [
+        "JSON.#{command}",
+        Redis.Global.cache_key(pool_name, key) | commands
+      ],
+      opts
+    )
   end
 end

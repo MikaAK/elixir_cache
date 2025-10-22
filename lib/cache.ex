@@ -10,9 +10,10 @@ defmodule Cache do
 
   @callback opts_definition() :: Keyword.t()
 
-  @callback start_link(
-    cache_opts :: Keyword.t()
-  ) :: {:ok, pid()} | {:error, {:already_started, pid()} | {:shutdown, term()} | term()} | :ignore
+  @callback start_link(cache_opts :: Keyword.t()) ::
+              {:ok, pid()}
+              | {:error, {:already_started, pid()} | {:shutdown, term()} | term()}
+              | :ignore
 
   @callback put(cache_name :: atom, key :: atom | String.t(), ttl :: pos_integer, value :: any) ::
               :ok | ErrorMessage.t()
@@ -83,7 +84,6 @@ defmodule Cache do
 
         adapter_opts ->
           pre_check_runtime_options.(adapter_opts)
-
       end
 
       adapter_opts = if opts[:sandbox?], do: [], else: check_adapter_opts.(opts[:opts])
@@ -100,11 +100,41 @@ defmodule Cache do
 
       def adapter_options, do: adapter_options!(@adapter_opts)
 
-      defp adapter_options!({module, fun, args}), do: apply(module, fun, args)
-      defp adapter_options!({app, key}), do: Application.fetch_env!(app, key)
-      defp adapter_options!(app_name) when is_atom(app_name), do: Application.fetch_env!(app_name, __MODULE__)
-      defp adapter_options!(fun) when is_function(fun, 0), do: fun.()
+      # Generate only the needed adapter_options!/1 clauses based on the actual adapter_opts
+      if match?({_, _, _}, @adapter_opts) do
+        defp adapter_options!({module, fun, args}), do: apply(module, fun, args)
+      end
+
+      if match?({_, _}, @adapter_opts) do
+        defp adapter_options!({app, key}), do: Application.fetch_env!(app, key)
+      end
+
+      if is_atom(@adapter_opts) and not is_nil(@adapter_opts) and not is_list(@adapter_opts) do
+        defp adapter_options!(app_name) when is_atom(app_name),
+          do: Application.fetch_env!(app_name, __MODULE__)
+      end
+
+      if is_function(@adapter_opts, 0) do
+        defp adapter_options!(fun) when is_function(fun, 0), do: fun.()
+      end
+
       defp adapter_options!(options), do: options
+
+      # Dynamic error handler that compiler can't statically analyze
+      defp handle_adapter_result(result, operation, cache_name) do
+        with {:error, error} <- result do
+          :telemetry.execute(
+            [:elixir_cache, :cache, operation, :error],
+            %{count: 1},
+            %{
+              cache_name: cache_name,
+              error: error
+            }
+          )
+
+          result
+        end
+      end
 
       def child_spec(_) do
         @cache_adapter.child_spec({@cache_name, adapter_options()})
@@ -118,16 +148,10 @@ defmodule Cache do
           [:elixir_cache, :cache, :put],
           %{cache_name: @cache_name},
           fn ->
-            result = with {:error, error} = e <- @cache_adapter.put(@cache_name, key, ttl, value, adapter_options()) do
-              :telemetry.execute([:elixir_cache, :cache, :put, :error], %{count: 1}, %{
-                cache_name: @cache_name,
-                error: error
-              })
-
-              e
-            end
-
-            {result, %{cache_name: @cache_name}}
+            @cache_name
+            |> @cache_adapter.put(key, ttl, value, adapter_options())
+            |> handle_adapter_result(:put, @cache_name)
+            |> then(&{&1, %{cache_name: @cache_name}})
           end
         )
       end
@@ -140,7 +164,10 @@ defmodule Cache do
           %{cache_name: @cache_name},
           fn ->
             result =
-              case @cache_adapter.get(@cache_name, key, adapter_options()) do
+              @cache_name
+              |> @cache_adapter.get(key, adapter_options())
+              |> handle_adapter_result(:get, @cache_name)
+              |> case do
                 {:ok, nil} = res ->
                   :telemetry.execute([:elixir_cache, :cache, :get, :miss], %{count: 1}, %{
                     cache_name: @cache_name
@@ -148,15 +175,11 @@ defmodule Cache do
 
                   res
 
-                {:ok, value} -> {:ok, Cache.TermEncoder.decode(value)}
+                {:ok, value} ->
+                  {:ok, Cache.TermEncoder.decode(value)}
 
-                {:error, error} = e ->
-                  :telemetry.execute([:elixir_cache, :cache, :get, :error], %{count: 1}, %{
-                    cache_name: @cache_name,
-                    error: error
-                  })
-
-                  e
+                {:error, _} = error ->
+                  error
               end
 
             {result, %{cache_name: @cache_name}}
@@ -171,16 +194,10 @@ defmodule Cache do
           [:elixir_cache, :cache, :delete],
           %{cache_name: @cache_name},
           fn ->
-            result = with {:error, error} = e <- @cache_adapter.delete(@cache_name, key, adapter_options()) do
-              :telemetry.execute([:elixir_cache, :cache, :delete, :error], %{count: 1}, %{
-                cache_name: @cache_name,
-                error: error
-              })
-
-              e
-            end
-
-            {result, %{cache_name: @cache_name}}
+            @cache_name
+            |> @cache_adapter.delete(key, adapter_options())
+            |> handle_adapter_result(:delete, @cache_name)
+            |> then(&{&1, %{cache_name: @cache_name}})
           end
         )
       end
@@ -220,25 +237,25 @@ defmodule Cache do
   end
 
   @doc """
-  Retrieves a value from the cache if it exists, or executes a function to create and store it.  
-  
-  This is a convenience function implementing the common "get or create" pattern for caches. 
-  It attempts to fetch a value from the cache first, and only if the value doesn't exist, 
+  Retrieves a value from the cache if it exists, or executes a function to create and store it.
+
+  This is a convenience function implementing the common "get or create" pattern for caches.
+  It attempts to fetch a value from the cache first, and only if the value doesn't exist,
   it will execute the provided function to generate the value and store it in the cache.
-  
+
   ## Parameters
-  
+
   - `cache` - The cache module to use (must implement the Cache behaviour)
   - `key` - The key to look up or create
   - `fnc` - A function that returns `{:ok, value}` or `{:error, reason}`
-  
+
   ## Returns
-  
+
   - `{:ok, value}` - The value from cache or newly created value
   - `{:error, reason}` - If an error occurred during retrieval or creation
-  
+
   ## Examples
-  
+
   ```elixir
   Cache.get_or_create(MyApp.Cache, "user:123", fn ->
     case UserRepo.get(123) do
@@ -248,19 +265,13 @@ defmodule Cache do
   end)
   ```
   """
-  @spec get_or_create(module(), atom() | String.t(), (-> {:ok, any()} | {:error, any()})) :: 
+  @spec get_or_create(module(), atom() | String.t(), (-> {:ok, any()} | {:error, any()})) ::
           {:ok, any()} | {:error, any()}
   def get_or_create(cache, key, fnc) do
-    case cache.get(key) do
-      {:ok, nil} ->
-        with {:ok, value} <- fnc.(),
-             :ok <- cache.put(key, value) do
-          {:ok, value}
-        end
-
-      {:ok, _} = res -> res
-
-      {:error, _} = e -> e
+    with {:ok, nil} <- cache.get(key),
+         {:ok, value} <- fnc.(),
+         :ok <- cache.put(key, value) do
+      {:ok, value}
     end
   end
 end

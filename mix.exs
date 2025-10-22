@@ -7,7 +7,8 @@ defmodule ElixirCache.MixProject do
       version: "0.3.11",
       elixir: "~> 1.11",
       start_permanent: Mix.env() == :prod,
-      description: "Standardized and testable caching across your app. In test caches are isolated.",
+      description:
+        "Standardized and testable caching across your app. In test caches are isolated.",
       deps: deps(),
       docs: docs(),
       package: package(),
@@ -24,7 +25,8 @@ defmodule ElixirCache.MixProject do
         "coveralls.detail": :test,
         "coveralls.post": :test,
         "coveralls.html": :test
-      ]
+      ],
+      aliases: aliases()
     ]
   end
 
@@ -41,16 +43,13 @@ defmodule ElixirCache.MixProject do
       {:error_message, "~> 0.3"},
       {:redix, "~> 1.2"},
       {:poolboy, "~> 1.5"},
-
       {:con_cache, "~> 1.0"},
       {:nimble_options, "~> 1.0"},
       {:sandbox_registry, "~> 0.1"},
       {:jason, "~> 1.0"},
-
       {:telemetry, "~> 1.1"},
       {:telemetry_metrics, "~> 1.0"},
-      {:prometheus_telemetry, "~> 0.3", optional:  true},
-
+      {:prometheus_telemetry, "~> 0.3", optional: true},
       {:faker, "~> 0.17", only: [:test]},
       {:credo, "~> 1.6", only: [:test, :dev], runtime: false},
       {:blitz_credo_checks, "~> 0.1", only: [:test, :dev], runtime: false},
@@ -66,6 +65,13 @@ defmodule ElixirCache.MixProject do
       licenses: ["MIT"],
       links: %{"GitHub" => "https://github.com/mikaak/elixir_cache"},
       files: ~w(mix.exs README.md CHANGELOG.md LICENSE lib)
+    ]
+  end
+
+  defp aliases do
+    [
+      compile: "compile --warnings-as-errors",
+      test: "test --warnings-as-errors"
     ]
   end
 
@@ -88,29 +94,26 @@ defmodule ElixirCache.MixProject do
       ],
       groups_for_extras: [
         "Getting Started": ["guides/introduction.md"],
-        "Tutorials": [~r{guides/tutorials/.?}],
+        Tutorials: [~r{guides/tutorials/.?}],
         "How-to Guides": [~r{guides/how-to/.?}],
-        "Explanation": [~r{guides/explanation/.?}],
-        "Reference": [~r{guides/reference/.?}],
-        "Changelog": ["CHANGELOG.md"]
+        Explanation: [~r{guides/explanation/.?}],
+        Reference: [~r{guides/reference/.?}],
+        Changelog: ["CHANGELOG.md"]
       ],
       groups_for_modules: [
-        "Main": [Cache, Cache.Metrics],
-
-        "Adapters": [
+        Main: [Cache, Cache.Metrics],
+        Adapters: [
           Cache.Agent,
           Cache.ETS,
           Cache.DETS,
           Cache.Redis,
           Cache.ConCache
         ],
-
         "Test Utils": [
           Cache.Sandbox,
           Cache.SandboxRegistry
         ],
-
-        "Internal": [Cache.TermEncoder]
+        Internal: [Cache.TermEncoder]
       ]
     ]
   end

@@ -5,13 +5,11 @@ defmodule Cache.DETS do
       default: false,
       doc: "Enable RAM File"
     ],
-
     type: [
       type: {:in, [:bag, :duplicate_bag, :set]},
       default: :set,
       doc: "Data type of DETS cache"
     ],
-
     file_path: [
       type: :string,
       default: "./",
@@ -201,16 +199,18 @@ defmodule Cache.DETS do
   def start_link(opts) do
     Task.start_link(fn ->
       table_name = opts[:table_name]
-      file_path = opts[:file_path]
+
+      file_path =
+        opts[:file_path]
         |> to_string
         |> create_file_name(table_name)
         |> tap(&File.mkdir_p!(Path.dirname(&1)))
-        |> String.to_charlist
+        |> String.to_charlist()
 
       opts =
         opts
         |> Keyword.drop([:table_name, :file_path])
-        |> Kernel.++([access: :read_write, file: file_path])
+        |> Kernel.++(access: :read_write, file: file_path)
 
       {:ok, _} = :dets.open_file(table_name, opts)
 

@@ -21,13 +21,22 @@ defmodule Cache.Redis.Hash do
     field = maybe_encode_hash_field(field, opts[:compression_level])
 
     with {:ok, value} when not is_nil(value) <-
-           Redis.Global.command(pool_name, ["HGET", Redis.Global.cache_key(pool_name, key), field], opts) do
+           Redis.Global.command(
+             pool_name,
+             ["HGET", Redis.Global.cache_key(pool_name, key), field],
+             opts
+           ) do
       {:ok, TermEncoder.decode(value)}
     end
   end
 
   def hash_get_all(pool_name, key, opts) do
-    with {:ok, data} <- Redis.Global.command(pool_name, ["HGETALL", Redis.Global.cache_key(pool_name, key)], opts) do
+    with {:ok, data} <-
+           Redis.Global.command(
+             pool_name,
+             ["HGETALL", Redis.Global.cache_key(pool_name, key)],
+             opts
+           ) do
       hash =
         data
         |> Enum.chunk_every(2)
@@ -113,7 +122,12 @@ defmodule Cache.Redis.Hash do
   end
 
   def hash_values(pool_name, key, opts) do
-    with {:ok, data} <- Redis.Global.command(pool_name, ["HVALS", Redis.Global.cache_key(pool_name, key)], opts) do
+    with {:ok, data} <-
+           Redis.Global.command(
+             pool_name,
+             ["HVALS", Redis.Global.cache_key(pool_name, key)],
+             opts
+           ) do
       values =
         Enum.map(data, fn value ->
           TermEncoder.decode(value)

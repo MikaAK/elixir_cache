@@ -30,12 +30,13 @@ defmodule Cache.RedisJSONTest do
 
   describe "&json_get/1" do
     test "gets full json item", %{key: key} do
-      assert {:ok, %{
-        "some_integer" => 1234,
-        "some_array" => [1, 2, 3, 4],
-        "some_empty_array" => [],
-        "some_map" => %{"one" => 1, "two" => 2, "three" => 3, "four" => 4}
-      }} === RedisCache.json_get(key)
+      assert {:ok,
+              %{
+                "some_integer" => 1234,
+                "some_array" => [1, 2, 3, 4],
+                "some_empty_array" => [],
+                "some_map" => %{"one" => 1, "two" => 2, "three" => 3, "four" => 4}
+              }} === RedisCache.json_get(key)
     end
 
     test "returns :ok and nil if key not found" do
@@ -46,7 +47,9 @@ defmodule Cache.RedisJSONTest do
   describe "&json_get/2" do
     test "gets an item at path", %{key: key} do
       assert {:ok, @test_value.some_map.one} === RedisCache.json_get(key, [:some_map, :one])
-      assert {:ok, Enum.at(@test_value.some_array, 0)} === RedisCache.json_get(key, [:some_array, 0])
+
+      assert {:ok, Enum.at(@test_value.some_array, 0)} ===
+               RedisCache.json_get(key, [:some_array, 0])
     end
 
     test "returns :error tuple if path not found", %{key: key} do
@@ -70,7 +73,7 @@ defmodule Cache.RedisJSONTest do
     test "updates a json path", %{key: key} do
       assert :ok = RedisCache.json_set(key, [:some_map, :one], 4)
       assert {:ok, 4} = RedisCache.json_get(key, [:some_map, :one])
-      assert :ok =  RedisCache.json_set(key, ["some_map.one"], 5)
+      assert :ok = RedisCache.json_set(key, ["some_map.one"], 5)
       assert {:ok, 5} = RedisCache.json_get(key, [:some_map, :one])
     end
 
