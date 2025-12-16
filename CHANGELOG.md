@@ -1,3 +1,6 @@
+# 0.3.13
+- fix: allow `Cache.ConCache` to accept `ets_options` (strict NimbleOptions validation + normalization)
+
 # 0.3.12
 - chore: fix warnings
 

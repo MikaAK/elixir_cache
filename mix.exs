@@ -4,7 +4,7 @@ defmodule ElixirCache.MixProject do
   def project do
     [
       app: :elixir_cache,
-      version: "0.3.12",
+      version: "0.3.13",
       elixir: "~> 1.11",
       start_permanent: Mix.env() == :prod,
       description:
