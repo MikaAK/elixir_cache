@@ -274,9 +274,7 @@ defmodule Cache.Sandbox do
     end)
   end
 
-  def insert_raw(cache_name, data) when is_tuple(data) do
-    {key, value} = data
-
+  def insert_raw(cache_name, {key, value}) do
     Agent.update(cache_name, fn state ->
       Map.put(state, key, value)
     end)

@@ -38,7 +38,7 @@ defmodule Cache.ConCache do
           :named_table
           | :compressed
           | {:heir, pid()}
-          | {:write_concurrency, boolean()}
+          | {:write_concurrency, boolean() | :auto}
           | {:read_concurrency, boolean()}
           | :ordered_set
           | :set
