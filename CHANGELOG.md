@@ -1,3 +1,7 @@
+# 0.3.13
+- fix: allow `Cache.ConCache` to accept `ets_options` (strict NimbleOptions validation + normalization)
+- feat: allow `Cache.ETS` `write_concurrency: :auto` (OTP 25+)
+
 # 0.3.12
 - chore: fix warnings
 

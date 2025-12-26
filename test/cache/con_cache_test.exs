@@ -5,6 +5,39 @@ defmodule Cache.ConCacheTest do
   """
   use ExUnit.Case, async: true
 
+  describe "ets_options validation" do
+    test "accepts ets_options keyword list" do
+      validated =
+        NimbleOptions.validate!(
+          [ets_options: [read_concurrency: true, write_concurrency: :auto]],
+          Cache.ConCache.opts_definition()
+        )
+
+      assert [
+               {:read_concurrency, true},
+               {:write_concurrency, :auto}
+             ] = validated[:ets_options]
+    end
+
+    test "rejects unknown ets_options keys" do
+      assert_raise NimbleOptions.ValidationError, fn ->
+        NimbleOptions.validate!(
+          [ets_options: [read_concurency: true]],
+          Cache.ConCache.opts_definition()
+        )
+      end
+    end
+
+    test "rejects invalid ets_options value types" do
+      assert_raise NimbleOptions.ValidationError, fn ->
+        NimbleOptions.validate!(
+          [ets_options: [read_concurrency: :yes]],
+          Cache.ConCache.opts_definition()
+        )
+      end
+    end
+  end
+
   defmodule ConCacheAdapter do
     use Cache,
       adapter: Cache.ConCache,

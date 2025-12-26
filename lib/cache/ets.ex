@@ -1,7 +1,7 @@
 defmodule Cache.ETS do
   @opts_definition [
     write_concurrency: [
-      type: :boolean,
+      type: {:or, [:boolean, {:in, [:auto]}]},
       doc: "Enable write concurrency"
     ],
     read_concurrency: [
@@ -224,6 +224,51 @@ defmodule Cache.ETS do
 
   @impl Cache
   def opts_definition, do: @opts_definition
+
+  def opts_definition(opts) when is_list(opts) do
+    if Keyword.keyword?(opts) do
+      validate_and_normalize_ets_options(opts)
+    else
+      {:error, "expected a keyword list"}
+    end
+  end
+
+  def opts_definition(_opts), do: {:error, "expected a keyword list"}
+
+  defp validate_and_normalize_ets_options(opts) do
+    case NimbleOptions.validate(opts, @opts_definition) do
+      {:ok, validated} ->
+        {:ok, normalize_ets_options(opts, validated)}
+
+      {:error, %NimbleOptions.ValidationError{} = error} ->
+        {:error, Exception.message(error)}
+    end
+  end
+
+  defp normalize_ets_options(original_opts, validated) do
+    Enum.reject(
+      [
+        maybe_type(original_opts, validated),
+        maybe_compressed(original_opts, validated),
+        maybe_kv(original_opts, validated, :read_concurrency),
+        maybe_kv(original_opts, validated, :write_concurrency),
+        maybe_kv(original_opts, validated, :decentralized_counters)
+      ],
+      &is_nil/1
+    )
+  end
+
+  defp maybe_type(original_opts, validated) do
+    if Keyword.has_key?(original_opts, :type), do: validated[:type]
+  end
+
+  defp maybe_compressed(original_opts, validated) do
+    if Keyword.has_key?(original_opts, :compressed) and validated[:compressed], do: :compressed
+  end
+
+  defp maybe_kv(original_opts, validated, key) do
+    if Keyword.has_key?(original_opts, key), do: {key, validated[key]}
+  end
 
   @impl Cache
   def start_link(opts) do
