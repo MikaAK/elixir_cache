@@ -31,6 +31,162 @@ defmodule Cache.DETS do
   defmacro __using__(_opts) do
     quote do
       @doc """
+      Returns a list of the names of all open DETS tables on this node.
+      """
+      def all do
+        :dets.all()
+      end
+
+      @doc """
+      Returns a list of objects stored in the table (binary chunk format).
+      """
+      def bchunk(continuation) do
+        :dets.bchunk(@cache_name, continuation)
+      end
+
+      @doc """
+      Closes the DETS table.
+      """
+      def close do
+        :dets.close(@cache_name)
+      end
+
+      @doc """
+      Deletes all objects in the DETS table.
+      """
+      def delete_all_objects do
+        :dets.delete_all_objects(@cache_name)
+      end
+
+      @doc """
+      Deletes the exact object from the DETS table.
+      """
+      def delete_object(object) do
+        :dets.delete_object(@cache_name, object)
+      end
+
+      @doc """
+      Returns the first key in the table.
+      """
+      def first do
+        :dets.first(@cache_name)
+      end
+
+      @doc """
+      Folds over all objects in the table.
+      """
+      def foldl(function, acc) do
+        :dets.foldl(function, acc, @cache_name)
+      end
+
+      @doc """
+      Folds over all objects in the table (same as foldl for DETS).
+      """
+      def foldr(function, acc) do
+        :dets.foldr(function, acc, @cache_name)
+      end
+
+      @doc """
+      Get information about the DETS table.
+      """
+      def info do
+        :dets.info(@cache_name)
+      end
+
+      @doc """
+      Get specific information about the DETS table.
+      """
+      def info(item) do
+        :dets.info(@cache_name, item)
+      end
+
+      @doc """
+      Replaces the existing objects of the table with objects created by calling the input function.
+      """
+      def init_table(init_fun) do
+        :dets.init_table(@cache_name, init_fun)
+      end
+
+      @doc """
+      Replaces the existing objects of the table with objects created by calling the input function with options.
+      """
+      def init_table(init_fun, options) do
+        :dets.init_table(@cache_name, init_fun, options)
+      end
+
+      @doc """
+      Insert raw data into the DETS table using the underlying :dets.insert/2 function.
+      """
+      def insert_raw(data) do
+        :dets.insert(@cache_name, data)
+      end
+
+      @doc """
+      Same as insert/2 except returns false if any object with the same key already exists.
+      """
+      def insert_new(data) do
+        :dets.insert_new(@cache_name, data)
+      end
+
+      @doc """
+      Returns true if it would be possible to initialize the table with bchunk data.
+      """
+      # credo:disable-for-next-line Credo.Check.Readability.PredicateFunctionNames
+      def is_compatible_bchunk_format(bchunk_format) do
+        :dets.is_compatible_bchunk_format(@cache_name, bchunk_format)
+      end
+
+      @doc """
+      Returns true if the file is a DETS table.
+      """
+      # credo:disable-for-next-line Credo.Check.Readability.PredicateFunctionNames
+      def is_dets_file(filename) do
+        :dets.is_dets_file(filename)
+      end
+
+      @doc """
+      Returns a list of all objects with the given key.
+      """
+      def lookup(key) do
+        :dets.lookup(@cache_name, key)
+      end
+
+      @doc """
+      Continues a match started with match/2.
+      """
+      def match(continuation) when not is_tuple(continuation) do
+        :dets.match(continuation)
+      end
+
+      @doc """
+      Matches the objects in the table against the pattern.
+      """
+      def match(pattern) do
+        :dets.match(@cache_name, pattern)
+      end
+
+      @doc """
+      Matches the objects in the table against the pattern with a limit.
+      """
+      def match(pattern, limit) do
+        :dets.match(@cache_name, pattern, limit)
+      end
+
+      @doc """
+      Deletes all objects that match the pattern from the table.
+      """
+      def match_delete(pattern) do
+        :dets.match_delete(@cache_name, pattern)
+      end
+
+      @doc """
+      Continues a match_object started with match_object/2.
+      """
+      def match_object(continuation) when not is_tuple(continuation) do
+        :dets.match_object(continuation)
+      end
+
+      @doc """
       Match objects in the DETS table that match the given pattern.
 
       ## Examples
@@ -67,6 +223,55 @@ defmodule Cache.DETS do
       end
 
       @doc """
+      Returns the next key following the given key.
+      """
+      def next(key) do
+        :dets.next(@cache_name, key)
+      end
+
+      @doc """
+      Opens an existing DETS table file.
+      """
+      def open_file(filename) do
+        :dets.open_file(filename)
+      end
+
+      @doc """
+      Opens a DETS table with the given name and arguments.
+      """
+      def open_file(name, args) do
+        :dets.open_file(name, args)
+      end
+
+      @doc """
+      Returns the table name given the pid of a process that handles requests to a table.
+      """
+      def pid2name(pid) do
+        :dets.pid2name(pid)
+      end
+
+      @doc """
+      Restores an opaque continuation that has passed through external term format.
+      """
+      def repair_continuation(continuation, match_spec) do
+        :dets.repair_continuation(continuation, match_spec)
+      end
+
+      @doc """
+      Fixes the table for safe traversal.
+      """
+      def safe_fixtable(fix) do
+        :dets.safe_fixtable(@cache_name, fix)
+      end
+
+      @doc """
+      Continues a select started with select/2.
+      """
+      def select(continuation) when not is_list(continuation) do
+        :dets.select(continuation)
+      end
+
+      @doc """
       Select objects from the DETS table using a match specification.
 
       ## Examples
@@ -91,103 +296,66 @@ defmodule Cache.DETS do
       end
 
       @doc """
-      Get information about the DETS table.
-
-      ## Examples
-
-          iex> #{inspect(__MODULE__)}.info()
-          [...]
-      """
-      def info do
-        :dets.info(@cache_name)
-      end
-
-      @doc """
-      Get specific information about the DETS table.
-
-      ## Examples
-
-          iex> #{inspect(__MODULE__)}.info(:size)
-          42
-      """
-      def info(item) do
-        :dets.info(@cache_name, item)
-      end
-
-      @doc """
       Delete objects from the DETS table using a match specification.
-
-      ## Examples
-
-          iex> #{inspect(__MODULE__)}.select_delete([{{:key, :_}, [], [true]}])
-          42
       """
       def select_delete(match_spec) do
         :dets.select_delete(@cache_name, match_spec)
       end
 
       @doc """
-      Delete objects from the DETS table that match the given pattern.
-
-      ## Examples
-
-          iex> #{inspect(__MODULE__)}.match_delete({:key, :_})
-          :ok
+      Returns the list of objects associated with slot I.
       """
-      def match_delete(pattern) do
-        :dets.match_delete(@cache_name, pattern)
+      def slot(i) do
+        :dets.slot(@cache_name, i)
+      end
+
+      @doc """
+      Ensures that all updates made to the table are written to disk.
+      """
+      def sync do
+        :dets.sync(@cache_name)
+      end
+
+      @doc """
+      Returns a QLC query handle for the table.
+      """
+      def table do
+        :dets.table(@cache_name)
+      end
+
+      @doc """
+      Returns a QLC query handle for the table with options.
+      """
+      def table(options) do
+        :dets.table(@cache_name, options)
+      end
+
+      @doc """
+      Applies a function to each object stored in the table.
+      """
+      def traverse(fun) do
+        :dets.traverse(@cache_name, fun)
       end
 
       @doc """
       Update a counter in the DETS table.
-
-      ## Examples
-
-          iex> #{inspect(__MODULE__)}.update_counter(:counter_key, {2, 1})
-          43
       """
       def update_counter(key, update_op) do
         :dets.update_counter(@cache_name, key, update_op)
       end
 
       @doc """
-      Insert raw data into the DETS table using the underlying :dets.insert/2 function.
-
-      ## Examples
-
-          iex> #{inspect(__MODULE__)}.insert_raw({:key, "value"})
-          :ok
-          iex> #{inspect(__MODULE__)}.insert_raw([{:key1, "value1"}, {:key2, "value2"}])
-          :ok
+      Convert a DETS table to the given ETS table.
       """
-      def insert_raw(data) do
-        :dets.insert(@cache_name, data)
+      def to_ets(ets_table) do
+        :dets.to_ets(@cache_name, ets_table)
       end
 
-      if function_exported?(:dets, :to_ets, 1) do
-        @doc """
-        Convert a DETS table to an ETS table.
-
-        ## Examples
-
-          iex> #{inspect(__MODULE__)}.to_ets()
-          :my_ets_table
-        """
-        def to_ets do
-          :dets.to_ets(@cache_name)
-        end
-
-        @doc """
-        Convert an ETS table to a DETS table.
-
-        ## Examples
-
-            iex> #{inspect(__MODULE__)}.from_ets(:my_ets_table)
-            :ok
-        """
-        def from_ets(ets_table) do
-          :dets.from_ets(@cache_name, ets_table)
-        end
+      @doc """
+      Convert an ETS table to a DETS table.
+      """
+      def from_ets(ets_table) do
+        :dets.from_ets(@cache_name, ets_table)
       end
     end
   end

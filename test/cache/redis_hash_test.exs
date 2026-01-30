@@ -127,7 +127,7 @@ defmodule Cache.RedisHashTest do
   describe "&hash_set/4" do
     test "sets a field and updates key with a ttl", %{test: test} do
       test_key = test_key(test, "key")
-      {:ok, [1, 1]} = RedisCache.hash_set(test_key, :field, "value", 1)
+      {:ok, [1, 1]} = RedisCache.hash_set(test_key, :field, "value", :timer.seconds(1))
     end
   end
 
@@ -176,8 +176,8 @@ defmodule Cache.RedisHashTest do
     end
 
     test "sets many keys with expiries", %{set_1: set_1, set_2: set_2} do
-      assert {:ok, [2, 1]} = RedisCache.hash_set_many([set_1], 1)
-      assert {:ok, [0, 2, 1, 1]} = RedisCache.hash_set_many([set_1, set_2], 1)
+      assert {:ok, [2, 1]} = RedisCache.hash_set_many([set_1], :timer.seconds(1))
+      assert {:ok, [0, 2, 1, 1]} = RedisCache.hash_set_many([set_1, set_2], :timer.seconds(1))
     end
   end
 
