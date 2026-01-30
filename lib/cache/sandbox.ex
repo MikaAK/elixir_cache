@@ -260,9 +260,170 @@ defmodule Cache.Sandbox do
   end
 
   # ETS & DETS Compatibility
+
+  def all do
+    Agent.get(Cache.Sandbox, fn state -> Map.keys(state) end)
+  rescue
+    _ -> []
+  end
+
+  def delete_table(cache_name) do
+    Agent.update(cache_name, fn _ -> %{} end)
+    true
+  end
+
+  def delete_all_objects(cache_name) do
+    Agent.update(cache_name, fn _ -> %{} end)
+    true
+  end
+
+  def delete_object(cache_name, object) when is_tuple(object) do
+    key = elem(object, 0)
+
+    Agent.update(cache_name, fn state ->
+      case Map.get(state, key) do
+        ^object -> Map.delete(state, key)
+        _ -> state
+      end
+    end)
+
+    true
+  end
+
+  def first(cache_name) do
+    Agent.get(cache_name, fn state ->
+      case Map.keys(state) do
+        [] -> :"$end_of_table"
+        [key | _] -> key
+      end
+    end)
+  end
+
+  def first_lookup(cache_name) do
+    Agent.get(cache_name, fn state ->
+      case Map.to_list(state) do
+        [] -> :"$end_of_table"
+        [{key, value} | _] -> {key, [{key, value}]}
+      end
+    end)
+  end
+
+  def last(cache_name) do
+    Agent.get(cache_name, fn state ->
+      case state |> Map.keys() |> Enum.reverse() do
+        [] -> :"$end_of_table"
+        [key | _] -> key
+      end
+    end)
+  end
+
+  def last_lookup(cache_name) do
+    Agent.get(cache_name, fn state ->
+      case state |> Map.to_list() |> Enum.reverse() do
+        [] -> :"$end_of_table"
+        [{key, value} | _] -> {key, [{key, value}]}
+      end
+    end)
+  end
+
+  def next(cache_name, key) do
+    Agent.get(cache_name, fn state ->
+      keys = state |> Map.keys() |> Enum.sort()
+      find_next_key(keys, key)
+    end)
+  end
+
+  def next_lookup(cache_name, key) do
+    Agent.get(cache_name, fn state ->
+      keys = state |> Map.keys() |> Enum.sort()
+
+      case find_next_key(keys, key) do
+        :"$end_of_table" -> :"$end_of_table"
+        next_key -> {next_key, [{next_key, Map.get(state, next_key)}]}
+      end
+    end)
+  end
+
+  def prev(cache_name, key) do
+    Agent.get(cache_name, fn state ->
+      keys = state |> Map.keys() |> Enum.sort() |> Enum.reverse()
+      find_next_key(keys, key)
+    end)
+  end
+
+  def prev_lookup(cache_name, key) do
+    Agent.get(cache_name, fn state ->
+      keys = state |> Map.keys() |> Enum.sort() |> Enum.reverse()
+
+      case find_next_key(keys, key) do
+        :"$end_of_table" -> :"$end_of_table"
+        prev_key -> {prev_key, [{prev_key, Map.get(state, prev_key)}]}
+      end
+    end)
+  end
+
+  defp find_next_key([], _key), do: :"$end_of_table"
+  defp find_next_key([_], _key), do: :"$end_of_table"
+
+  defp find_next_key([current, next | _rest], key) when current === key do
+    next
+  end
+
+  defp find_next_key([_ | rest], key), do: find_next_key(rest, key)
+
+  def foldl(cache_name, function, acc) do
+    Agent.get(cache_name, fn state ->
+      state
+      |> Map.to_list()
+      |> Enum.reduce(acc, fn {key, value}, acc_inner ->
+        function.({key, value}, acc_inner)
+      end)
+    end)
+  end
+
+  def foldr(cache_name, function, acc) do
+    Agent.get(cache_name, fn state ->
+      state
+      |> Map.to_list()
+      |> Enum.reverse()
+      |> Enum.reduce(acc, fn {key, value}, acc_inner ->
+        function.({key, value}, acc_inner)
+      end)
+    end)
+  end
+
   def member(cache_name, key) do
     Agent.get(cache_name, fn state ->
       Map.has_key?(state, key)
+    end)
+  end
+
+  def lookup(cache_name, key) do
+    Agent.get(cache_name, fn state ->
+      case Map.get(state, key) do
+        nil -> []
+        value -> [{key, value}]
+      end
+    end)
+  end
+
+  def lookup_element(cache_name, key, pos) do
+    Agent.get(cache_name, fn state ->
+      case Map.get(state, key) do
+        nil -> raise ArgumentError, "key not found"
+        value when is_tuple(value) -> elem(value, pos - 1)
+        value -> value
+      end
+    end)
+  end
+
+  def lookup_element(cache_name, key, pos, default) do
+    Agent.get(cache_name, fn state ->
+      case Map.get(state, key) do
+        nil -> default
+        value when is_tuple(value) -> elem(value, pos - 1)
+        value -> value
+      end
     end)
   end
 
@@ -274,8 +435,33 @@ defmodule Cache.Sandbox do
     end)
   end
 
+  def update_counter(cache_name, key, incr) when is_integer(incr) do
+    Agent.get_and_update(cache_name, fn state ->
+      current_value = state[key] || 0
+      new_value = current_value + incr
+      {new_value, Map.put(state, key, new_value)}
+    end)
+  end
+
+  def update_counter(cache_name, key, update_op, default) do
+    Agent.get_and_update(cache_name, fn state ->
+      if Map.has_key?(state, key) do
+        current_value = state[key]
+        incr = if is_tuple(update_op), do: elem(update_op, 1), else: update_op
+        new_value = current_value + incr
+        {new_value, Map.put(state, key, new_value)}
+      else
+        default_value = if is_tuple(default), do: elem(default, 1), else: default
+        incr = if is_tuple(update_op), do: elem(update_op, 1), else: update_op
+        new_value = default_value + incr
+        {new_value, Map.put(state, key, new_value)}
+      end
+    end)
+  end
+
   def insert_raw(cache_name, data) when is_tuple(data) do
-    {key, value} = data
+    key = elem(data, 0)
+    value = if tuple_size(data) === 2, do: elem(data, 1), else: data
 
     Agent.update(cache_name, fn state ->
       Map.put(state, key, value)
@@ -286,7 +472,9 @@ defmodule Cache.Sandbox do
 
   def insert_raw(cache_name, data) when is_list(data) do
     Agent.update(cache_name, fn state ->
-      Enum.reduce(data, state, fn {key, value}, acc ->
+      Enum.reduce(data, state, fn tuple, acc ->
+        key = elem(tuple, 0)
+        value = if tuple_size(tuple) === 2, do: elem(tuple, 1), else: tuple
         Map.put(acc, key, value)
       end)
     end)
@@ -294,52 +482,508 @@ defmodule Cache.Sandbox do
     true
   end
 
-  def match_object(_cache_name, _pattern) do
-    raise "Not Implemented"
+  def insert_new(cache_name, data) when is_tuple(data) do
+    key = elem(data, 0)
+    value = if tuple_size(data) === 2, do: elem(data, 1), else: data
+
+    Agent.get_and_update(cache_name, fn state ->
+      if Map.has_key?(state, key) do
+        {false, state}
+      else
+        {true, Map.put(state, key, value)}
+      end
+    end)
   end
 
-  def match_object(_cache_name, _pattern, _limit) do
-    raise "Not Implemented"
+  def insert_new(cache_name, data) when is_list(data) do
+    Agent.get_and_update(cache_name, fn state ->
+      keys_exist = Enum.any?(data, fn tuple -> Map.has_key?(state, elem(tuple, 0)) end)
+
+      if keys_exist do
+        {false, state}
+      else
+        new_state =
+          Enum.reduce(data, state, fn tuple, acc ->
+            key = elem(tuple, 0)
+            value = if tuple_size(tuple) === 2, do: elem(tuple, 1), else: tuple
+            Map.put(acc, key, value)
+          end)
+
+        {true, new_state}
+      end
+    end)
   end
 
-  def select(_cache_name, _match_spec) do
-    raise "Not Implemented"
+  def take(cache_name, key) do
+    Agent.get_and_update(cache_name, fn state ->
+      case Map.pop(state, key) do
+        {nil, state} -> {[], state}
+        {value, new_state} -> {[{key, value}], new_state}
+      end
+    end)
   end
 
-  def select(_cache_name, _match_spec, _limit) do
-    raise "Not Implemented"
+  def tab2list(cache_name) do
+    Agent.get(cache_name, fn state ->
+      Map.to_list(state)
+    end)
   end
 
-  def info(_cache_name) do
-    raise "Not Implemented"
+  def match_object(cache_name, pattern) do
+    Agent.get(cache_name, fn state ->
+      state
+      |> Map.to_list()
+      |> Enum.filter(fn {key, value} ->
+        match_pattern?({key, value}, pattern)
+      end)
+    end)
   end
 
-  def info(_cache_name, _item) do
-    raise "Not Implemented"
+  def match_object(cache_name, pattern, limit) do
+    Agent.get(cache_name, fn state ->
+      results =
+        state
+        |> Map.to_list()
+        |> Enum.filter(fn {key, value} ->
+          match_pattern?({key, value}, pattern)
+        end)
+        |> Enum.take(limit)
+
+      {results, :end_of_table}
+    end)
   end
 
-  def select_delete(_cache_name, _match_spec) do
-    raise "Not Implemented"
+  def match_pattern(cache_name, pattern) do
+    Agent.get(cache_name, fn state ->
+      state
+      |> Map.to_list()
+      |> Enum.filter(fn {key, value} ->
+        match_pattern?({key, value}, pattern)
+      end)
+      |> Enum.map(fn obj -> extract_bindings(obj, pattern) end)
+    end)
   end
 
-  def match_delete(_cache_name, _pattern) do
-    raise "Not Implemented"
+  def match_pattern(cache_name, pattern, limit) do
+    Agent.get(cache_name, fn state ->
+      results =
+        state
+        |> Map.to_list()
+        |> Enum.filter(fn {key, value} ->
+          match_pattern?({key, value}, pattern)
+        end)
+        |> Enum.take(limit)
+        |> Enum.map(fn obj -> extract_bindings(obj, pattern) end)
+
+      {results, :end_of_table}
+    end)
+  end
+
+  defp match_pattern?(_object, :_), do: true
+
+  defp match_pattern?(object, pattern) when is_tuple(pattern) and is_tuple(object) do
+    if tuple_size(object) === tuple_size(pattern) do
+      object_list = Tuple.to_list(object)
+      pattern_list = Tuple.to_list(pattern)
+
+      object_list
+      |> Enum.zip(pattern_list)
+      |> Enum.all?(fn {obj_elem, pat_elem} ->
+        match_element?(obj_elem, pat_elem)
+      end)
+    else
+      false
+    end
+  end
+
+  defp match_pattern?(object, pattern), do: match_element?(object, pattern)
+
+  defp match_element?(_obj, :_), do: true
+  defp match_element?(_obj, pattern) when is_atom(pattern) and pattern !== :_, do: binding?(pattern) or false
+  defp match_element?(obj, pattern), do: obj === pattern
+
+  defp binding?(atom) when is_atom(atom) do
+    atom_str = Atom.to_string(atom)
+    String.starts_with?(atom_str, "$")
+  end
+
+  defp binding?(_), do: false
+
+  defp extract_bindings(object, pattern) when is_tuple(pattern) and is_tuple(object) do
+    object_list = Tuple.to_list(object)
+    pattern_list = Tuple.to_list(pattern)
+
+    object_list
+    |> Enum.zip(pattern_list)
+    |> Enum.filter(fn {_obj_elem, pat_elem} -> binding?(pat_elem) end)
+    |> Enum.map(fn {obj_elem, _pat_elem} -> obj_elem end)
+  end
+
+  defp extract_bindings(_object, _pattern), do: []
+
+  def select(cache_name, match_spec) do
+    Agent.get(cache_name, fn state ->
+      state
+      |> Map.to_list()
+      |> Enum.flat_map(fn {key, value} ->
+        apply_match_spec({key, value}, match_spec)
+      end)
+    end)
+  end
+
+  def select(cache_name, match_spec, limit) do
+    Agent.get(cache_name, fn state ->
+      results =
+        state
+        |> Map.to_list()
+        |> Enum.flat_map(fn {key, value} ->
+          apply_match_spec({key, value}, match_spec)
+        end)
+        |> Enum.take(limit)
+
+      {results, :end_of_table}
+    end)
+  end
+
+  defp apply_match_spec(object, match_spec) when is_list(match_spec) do
+    Enum.flat_map(match_spec, fn spec ->
+      apply_single_match_spec(object, spec)
+    end)
+  end
+
+  defp apply_single_match_spec(object, {pattern, _guards, result_spec}) do
+    if match_pattern?(object, pattern) do
+      [transform_result(object, result_spec)]
+    else
+      []
+    end
+  end
+
+  defp apply_single_match_spec(_object, _spec), do: []
+
+  defp transform_result(object, [:"$_"]), do: object
+  defp transform_result({key, _value}, [:"$$"]), do: [key]
+  defp transform_result(_object, [result]) when is_atom(result), do: result
+  defp transform_result(_object, result), do: result
+
+  def select_count(cache_name, match_spec) do
+    Agent.get(cache_name, fn state ->
+      state
+      |> Map.to_list()
+      |> Enum.count(fn {key, value} ->
+        result = apply_match_spec({key, value}, match_spec)
+        result !== [] and hd(result) === true
+      end)
+    end)
+  end
+
+  def select_delete(cache_name, match_spec) do
+    Agent.get_and_update(cache_name, fn state ->
+      {to_delete, to_keep} =
+        state
+        |> Map.to_list()
+        |> Enum.split_with(fn {key, value} ->
+          result = apply_match_spec({key, value}, match_spec)
+          result !== [] and hd(result) === true
+        end)
+
+      {length(to_delete), Map.new(to_keep)}
+    end)
+  end
+
+  def select_replace(cache_name, match_spec) do
+    Agent.get_and_update(cache_name, fn state ->
+      {count, new_state} =
+        state
+        |> Map.to_list()
+        |> Enum.reduce({0, state}, fn {key, value}, {cnt, acc} ->
+          result = apply_match_spec({key, value}, match_spec)
+
+          case result do
+            [new_obj] when is_tuple(new_obj) ->
+              new_key = elem(new_obj, 0)
+              new_value = if tuple_size(new_obj) === 2, do: elem(new_obj, 1), else: new_obj
+              {cnt + 1, acc |> Map.delete(key) |> Map.put(new_key, new_value)}
+
+            _ ->
+              {cnt, acc}
+          end
+        end)
+
+      {count, new_state}
+    end)
+  end
+
+  def match_delete(cache_name, pattern) do
+    Agent.update(cache_name, fn state ->
+      state
+      |> Map.to_list()
+      |> Enum.reject(fn {key, value} ->
+        match_pattern?({key, value}, pattern)
+      end)
+      |> Map.new()
+    end)
+
+    true
+  end
+
+  def info(cache_name) do
+    Agent.get(cache_name, fn state ->
+      [
+        size: map_size(state),
+        type: :set,
+        named_table: true,
+        keypos: 1,
+        protection: :public
+      ]
+    end)
+  end
+
+  def info(cache_name, item) do
+    info = info(cache_name)
+    Keyword.get(info, item)
+  end
+
+  def slot(cache_name, i) do
+    Agent.get(cache_name, fn state ->
+      list = Map.to_list(state)
+
+      if i >= length(list) do
+        :"$end_of_table"
+      else
+        [Enum.at(list, i)]
+      end
+    end)
+  end
+
+  def safe_fixtable(_cache_name, _fix) do
+    true
+  end
+
+  def init_table(cache_name, init_fun) do
+    Agent.update(cache_name, fn _state ->
+      read_init_fun(init_fun, %{})
+    end)
+
+    true
+  end
+
+  defp read_init_fun(init_fun, acc) do
+    case init_fun.(:read) do
+      :end_of_input ->
+        acc
+
+      objects when is_list(objects) ->
+        new_acc =
+          Enum.reduce(objects, acc, fn tuple, inner_acc ->
+            key = elem(tuple, 0)
+            value = if tuple_size(tuple) === 2, do: elem(tuple, 1), else: tuple
+            Map.put(inner_acc, key, value)
+          end)
+
+        read_init_fun(init_fun, new_acc)
+
+      object when is_tuple(object) ->
+        key = elem(object, 0)
+        value = if tuple_size(object) === 2, do: elem(object, 1), else: object
+        read_init_fun(init_fun, Map.put(acc, key, value))
+    end
   end
 
   def to_dets(_cache_name, _dets_table) do
-    raise "Not Implemented"
+    {:error, :not_supported_in_sandbox}
   end
 
   def from_dets(_cache_name, _dets_table) do
-    raise "Not Implemented"
+    {:error, :not_supported_in_sandbox}
   end
 
   def to_ets(_cache_name) do
-    raise "Not Implemented"
+    {:error, :not_supported_in_sandbox}
+  end
+
+  def to_ets(_cache_name, _ets_table) do
+    {:error, :not_supported_in_sandbox}
   end
 
   def from_ets(_cache_name, _ets_table) do
-    raise "Not Implemented"
+    {:error, :not_supported_in_sandbox}
+  end
+
+  def close(_cache_name) do
+    :ok
+  end
+
+  def sync(_cache_name) do
+    :ok
+  end
+
+  def traverse(cache_name, fun) do
+    Agent.get_and_update(cache_name, fn state ->
+      {results, new_state} =
+        state
+        |> Map.to_list()
+        |> Enum.reduce({[], state}, fn {key, value}, {acc, current_state} ->
+          case fun.({key, value}) do
+            :continue ->
+              {acc, current_state}
+
+            {:continue, result} ->
+              {[result | acc], current_state}
+
+            {:done, result} ->
+              {[result | acc], current_state}
+
+            :done ->
+              {acc, current_state}
+          end
+        end)
+
+      {Enum.reverse(results), new_state}
+    end)
+  end
+
+  def bchunk(_cache_name, _continuation) do
+    {:error, :not_supported_in_sandbox}
+  end
+
+  # credo:disable-for-next-line Credo.Check.Readability.PredicateFunctionNames
+  def is_compatible_bchunk_format(_cache_name, _bchunk_format) do
+    false
+  end
+
+  # credo:disable-for-next-line Credo.Check.Readability.PredicateFunctionNames
+  def is_dets_file(_filename) do
+    false
+  end
+
+  def open_file(_filename) do
+    {:error, :not_supported_in_sandbox}
+  end
+
+  def open_file(_name, _args) do
+    {:error, :not_supported_in_sandbox}
+  end
+
+  def pid2name(_pid) do
+    :undefined
+  end
+
+  def repair_continuation(continuation, _match_spec) do
+    continuation
+  end
+
+  def file2tab(_filename) do
+    {:error, :not_supported_in_sandbox}
+  end
+
+  def file2tab(_filename, _options) do
+    {:error, :not_supported_in_sandbox}
+  end
+
+  def tab2file(_cache_name, _filename) do
+    {:error, :not_supported_in_sandbox}
+  end
+
+  def tab2file(_cache_name, _filename, _options) do
+    {:error, :not_supported_in_sandbox}
+  end
+
+  def tabfile_info(_filename) do
+    {:error, :not_supported_in_sandbox}
+  end
+
+  def table(_cache_name) do
+    {:error, :not_supported_in_sandbox}
+  end
+
+  def table(_cache_name, _options) do
+    {:error, :not_supported_in_sandbox}
+  end
+
+  def give_away(_cache_name, _pid, _gift_data) do
+    {:error, :not_supported_in_sandbox}
+  end
+
+  def rename(_cache_name, _name) do
+    {:error, :not_supported_in_sandbox}
+  end
+
+  def setopts(_cache_name, _opts) do
+    {:error, :not_supported_in_sandbox}
+  end
+
+  def whereis(_cache_name) do
+    :undefined
+  end
+
+  def test_ms(tuple, match_spec) do
+    :ets.test_ms(tuple, match_spec)
+  end
+
+  def match_spec_compile(match_spec) do
+    :ets.match_spec_compile(match_spec)
+  end
+
+  def match_spec_run(list, compiled_match_spec) do
+    :ets.match_spec_run(list, compiled_match_spec)
+  end
+
+  # credo:disable-for-next-line Credo.Check.Readability.PredicateFunctionNames
+  def is_compiled_ms(term) do
+    :ets.is_compiled_ms(term)
+  end
+
+  def update_element(cache_name, key, element_spec) do
+    Agent.get_and_update(cache_name, fn state ->
+      case Map.get(state, key) do
+        nil ->
+          {false, state}
+
+        value when is_tuple(value) ->
+          new_value = apply_element_spec(value, element_spec)
+          {true, Map.put(state, key, new_value)}
+
+        _ ->
+          {false, state}
+      end
+    end)
+  end
+
+  def update_element(cache_name, key, element_spec, default) do
+    Agent.get_and_update(cache_name, fn state ->
+      case Map.get(state, key) do
+        nil ->
+          {true, Map.put(state, key, default)}
+
+        value when is_tuple(value) ->
+          new_value = apply_element_spec(value, element_spec)
+          {true, Map.put(state, key, new_value)}
+
+        _ ->
+          {false, state}
+      end
+    end)
+  end
+
+  defp apply_element_spec(tuple, {pos, value}) do
+    put_elem(tuple, pos - 1, value)
+  end
+
+  defp apply_element_spec(tuple, specs) when is_list(specs) do
+    Enum.reduce(specs, tuple, fn {pos, value}, acc ->
+      put_elem(acc, pos - 1, value)
+    end)
+  end
+
+  def select_reverse(cache_name, match_spec) do
+    result = select(cache_name, match_spec)
+    Enum.reverse(result)
+  end
+
+  def select_reverse(cache_name, match_spec, limit) do
+    {results, continuation} = select(cache_name, match_spec, limit)
+    {Enum.reverse(results), continuation}
   end
 
   def smembers(_cache_name, _key, _opts) do
