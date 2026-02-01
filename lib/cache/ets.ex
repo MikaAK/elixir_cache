@@ -55,23 +55,35 @@ defmodule Cache.ETS do
   * Direct access to ETS-specific operations
   * Very high performance for read and write operations
   * Support for atomic counter operations
+  * Optional persistence via `store_on_exit_path` for rehydration on restart
 
   ## Options
   #{NimbleOptions.docs(@opts_definition)}
 
   ## Example
 
-  ```elixir
-  defmodule MyApp.Cache do
-    use Cache,
-      adapter: Cache.ETS,
-      name: :my_app_cache,
-      opts: [
-        read_concurrency: true,
-        write_concurrency: true
-      ]
-  end
-  ```
+      defmodule MyApp.Cache do
+        use Cache,
+          adapter: Cache.ETS,
+          name: :my_app_cache,
+          opts: [
+            read_concurrency: true,
+            write_concurrency: true
+          ]
+      end
+
+  ## Usage
+
+      iex> {:ok, _pid} = Cache.ETS.start_link(table_name: :doctest_ets_cache, type: :set)
+      iex> Process.sleep(10)
+      iex> Cache.ETS.put(:doctest_ets_cache, "key", nil, "value")
+      :ok
+      iex> Cache.ETS.get(:doctest_ets_cache, "key")
+      {:ok, "value"}
+      iex> Cache.ETS.delete(:doctest_ets_cache, "key")
+      :ok
+      iex> Cache.ETS.get(:doctest_ets_cache, "key")
+      {:ok, nil}
   """
 
   use Task, restart: :permanent

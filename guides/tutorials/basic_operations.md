@@ -24,8 +24,8 @@ To store a value in the cache:
 # Basic storage with no TTL (Time To Live)
 MyApp.Cache.put("user:1", %{name: "John", role: "admin"})
 
-# With a TTL of 60 seconds
-MyApp.Cache.put("session:123", %{user_id: 1, authenticated: true}, 60)
+# With a TTL (in milliseconds) - note TTL is the second argument
+MyApp.Cache.put("session:123", :timer.seconds(60), %{user_id: 1, authenticated: true})
 ```
 
 ### Retrieving Values

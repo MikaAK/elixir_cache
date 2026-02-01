@@ -6,17 +6,17 @@ This document provides a comprehensive overview of the ElixirCache API and all a
 
 These functions are available on any cache module that uses the `Cache` behavior.
 
-### put/3
+### put/2, put/3
 
 ```elixir
 put(key, value)
 put(key, ttl, value)
 ```
 
-Stores a value in the cache.
+Stores a value in the cache. Note that TTL is the second argument when provided.
 
 - `key` - The key under which to store the value (atom or string)
-- `ttl` - Optional time-to-live in seconds (integer)
+- `ttl` - Optional time-to-live in milliseconds (integer), placed as second argument
 - `value` - The value to store (any Elixir term)
 
 Returns `:ok` or `{:error, reason}`.
@@ -112,8 +112,8 @@ MyApp.RedisCache.hash_delete("user:1", "temporary_field")   # Delete a hash fiel
 
 # JSON operations
 MyApp.RedisCache.json_get("config")                         # Get entire JSON
-MyApp.RedisCache.json_set("config", ".settings", %{theme: "dark"}) # Set JSON path
-MyApp.RedisCache.json_incr("stats", ".counter")             # Increment value at path
+MyApp.RedisCache.json_set("config", ["settings"], %{theme: "dark"}) # Set JSON path
+MyApp.RedisCache.json_incr("stats", ["counter"])            # Increment value at path
 
 # Direct Redis access
 MyApp.RedisCache.command(["PING"])                          # Run a Redis command
@@ -126,7 +126,7 @@ Your Redis cache module will include these functions:
 
 * **Hash Functions**: `hash_get/2`, `hash_get_all/1`, `hash_get_many/1`, `hash_values/1`, `hash_set/3`, `hash_set/4`, `hash_set_many/2`, `hash_delete/2`, `hash_scan/1`, `hash_scan/2`
 
-* **JSON Functions**: `json_get/1`, `json_get/2`, `json_set/3`, `json_delete/2`, `json_incr/2`, `json_incr/3`, `json_array_append/3`
+* **JSON Functions**: `json_get/1`, `json_get/2`, `json_set/2`, `json_set/3`, `json_delete/2`, `json_incr/2`, `json_incr/3`, `json_clear/2`, `json_array_append/3`
 
 * **Command Functions**: `command/1`, `command/2`, `command!/1`, `command!/2`, `pipeline/1`, `pipeline/2`, `pipeline!/1`, `pipeline!/2`, `scan/0`, `scan/1`
 

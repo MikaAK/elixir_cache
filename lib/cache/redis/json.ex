@@ -1,5 +1,26 @@
 defmodule Cache.Redis.JSON do
-  @moduledoc false
+  @moduledoc """
+  Redis JSON operations for the Redis cache adapter.
+
+  This module provides RedisJSON operations including JSON.GET, JSON.SET,
+  JSON.DEL, JSON.NUMINCRBY, JSON.CLEAR, and JSON.ARRAPPEND. It handles
+  JSON path serialization and automatic encoding/decoding.
+
+  ## Features
+
+  * JSON document get/set/delete operations
+  * Path-based access to nested JSON data
+  * Numeric increment operations
+  * Array append operations
+  * Automatic JSON encoding/decoding via `Cache.TermEncoder`
+
+  ## Path Format
+
+  Paths can be specified as a list of keys/indices:
+
+      ["user", "address", "city"]     # => "user.address.city"
+      ["items", 0, "name"]            # => "items[0].name"
+  """
 
   alias Cache.{Redis, TermEncoder}
 

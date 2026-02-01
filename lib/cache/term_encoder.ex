@@ -1,5 +1,39 @@
 defmodule Cache.TermEncoder do
-  @moduledoc false
+  @moduledoc """
+  Encoder/decoder for serializing Elixir terms for cache storage.
+
+  This module handles the serialization and deserialization of Elixir terms
+  for storage in cache backends. It supports optional compression and handles
+  special cases like JSON data and integers.
+
+  ## Features
+
+  * Binary serialization using `:erlang.term_to_binary/2`
+  * Optional compression with configurable levels
+  * JSON encoding/decoding for Redis JSON operations
+  * Automatic handling of structs and nested data
+
+  ## Usage
+
+      iex> encoded = Cache.TermEncoder.encode(%{key: "value"}, nil)
+      iex> Cache.TermEncoder.decode(encoded)
+      %{key: "value"}
+
+      iex> Cache.TermEncoder.encode(42, nil)
+      42
+
+      iex> Cache.TermEncoder.encode("hello", nil) |> Cache.TermEncoder.decode()
+      "hello"
+
+      iex> Cache.TermEncoder.encode_json(%{name: "test"})
+      ~s({"name":"test"})
+
+      iex> Cache.TermEncoder.decode_json(~s({"name":"test"}))
+      %{"name" => "test"}
+
+      iex> Cache.TermEncoder.decode_json(nil)
+      nil
+  """
 
   def encode(term, compression_level)
       when not is_nil(compression_level) and compression_level >= 1 do

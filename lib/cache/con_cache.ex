@@ -15,11 +15,34 @@ defmodule Cache.ConCache do
     ]
   ]
   @moduledoc """
-  ETS Based cache https://github.com/sasa1977/con_cache
+  ConCache adapter for ETS-based caching with TTL support and isolated concurrent access.
 
-  Takes the following options:
+  This adapter wraps the [ConCache](https://github.com/sasa1977/con_cache) library,
+  providing ETS-backed storage with automatic TTL expiration and process-level locking
+  for safe concurrent access.
 
-   #{NimbleOptions.docs(@opts_definition)}
+  ## Features
+
+  * ETS-based in-memory storage with TTL support
+  * Automatic expiration of stale entries
+  * Process-level locking for safe concurrent writes
+  * `get_or_store` pattern for atomic cache population
+  * Configurable dirty mode for faster writes without locking
+
+  ## Options
+  #{NimbleOptions.docs(@opts_definition)}
+
+  ## Example
+
+      defmodule MyApp.TTLCache do
+        use Cache,
+          adapter: Cache.ConCache,
+          name: :ttl_cache,
+          opts: [
+            global_ttl: :timer.minutes(5),
+            ttl_check_interval: :timer.seconds(30)
+          ]
+      end
   """
 
   @behaviour Cache

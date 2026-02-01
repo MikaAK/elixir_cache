@@ -21,9 +21,9 @@ defmodule MyApp.RedisCache do
     adapter: Cache.Redis,
     name: :my_app_redis,
     opts: [
-      host: "localhost",
-      port: 6379,
-      pool_size: 5
+      uri: "redis://localhost:6379",
+      size: 5,
+      max_overflow: 2
     ]
 end
 ```
@@ -54,33 +54,21 @@ defmodule MyApp.RedisCache do
     adapter: Cache.Redis,
     name: :my_app_redis,
     opts: [
-      # Connection settings
-      host: "redis.example.com",
-      port: 6379,
-      password: "your_password",  # Optional
-      database: 0,                # Optional, default is 0
+      # Connection URI (required) - includes host, port, password, database
+      uri: "redis://:your_password@redis.example.com:6379/0",
       
       # Connection pool settings
-      pool_size: 10,              # Number of connections in the pool
+      size: 10,                   # Number of connections in the pool
       max_overflow: 5,            # Maximum number of overflow workers
-      
-      # Timeout settings
-      timeout: 5000,              # Connection timeout in milliseconds
-      
-      # SSL options
-      ssl: true,                  # Enable SSL
-      ssl_opts: [                 # SSL options
-        verify: :verify_peer,
-        cacertfile: "/path/to/ca_certificate.pem",
-        certfile: "/path/to/client_certificate.pem",
-        keyfile: "/path/to/client_key.pem"
-      ],
-      
-      # Encoding options
-      compression_level: 1        # Level of compression (0-9, higher = more compression)
+      strategy: :fifo             # Queue strategy (:fifo or :lifo)
     ]
 end
 ```
+
+The Redis URI format supports authentication and database selection:
+- `redis://localhost:6379` - Basic connection
+- `redis://:password@localhost:6379` - With password
+- `redis://:password@localhost:6379/1` - With password and database number
 
 ## Environment-Based Configuration
 
@@ -92,10 +80,9 @@ defmodule MyApp.RedisCache do
     adapter: Cache.Redis,
     name: :my_app_redis,
     opts: [
-      host: System.get_env("REDIS_HOST", "localhost"),
-      port: String.to_integer(System.get_env("REDIS_PORT", "6379")),
-      password: System.get_env("REDIS_PASSWORD"),
-      pool_size: String.to_integer(System.get_env("REDIS_POOL_SIZE", "10"))
+      uri: System.get_env("REDIS_URL", "redis://localhost:6379"),
+      size: String.to_integer(System.get_env("REDIS_POOL_SIZE", "10")),
+      max_overflow: String.to_integer(System.get_env("REDIS_MAX_OVERFLOW", "5"))
     ]
 end
 ```
@@ -124,18 +111,18 @@ MyApp.RedisCache.hash_delete("user:1", "email")
 ### JSON Operations
 
 ```elixir
-# Store JSON
+# Store JSON (path is optional, nil or omitted stores at root)
 json_data = %{users: [%{id: 1, name: "Alice"}, %{id: 2, name: "Bob"}]}
-MyApp.RedisCache.json_set("app:data", ".", json_data)
+MyApp.RedisCache.json_set("app:data", json_data)
 
-# Get JSON 
-{:ok, data} = MyApp.RedisCache.json_get("app:data", ".")
+# Get JSON (no path returns entire document)
+{:ok, data} = MyApp.RedisCache.json_get("app:data")
 
-# Get nested JSON path
-{:ok, users} = MyApp.RedisCache.json_get("app:data", ".users")
+# Get nested JSON path (path as list)
+{:ok, users} = MyApp.RedisCache.json_get("app:data", ["users"])
 
-# Update specific path
-MyApp.RedisCache.json_set("app:data", ".users[0].name", "Alicia")
+# Update specific path (use list with index for arrays)
+MyApp.RedisCache.json_set("app:data", ["users", 0, "name"], "Alicia")
 ```
 
 ## Troubleshooting Redis Connection
@@ -143,7 +130,7 @@ MyApp.RedisCache.json_set("app:data", ".users[0].name", "Alicia")
 If you're having issues connecting to Redis:
 
 1. **Verify Redis is running**: `redis-cli ping` should return `PONG`
-2. **Check connection settings**: Ensure host, port, and password are correct
+2. **Check connection settings**: Ensure your Redis URI is correct (format: `redis://[:password@]host:port[/database]`)
 3. **Network issues**: Ensure your application can reach the Redis server (firewalls, network rules)
 4. **Authentication**: Confirm your Redis password is correct if authentication is enabled
 5. **Connection pool**: Monitor your connection pool usage to ensure you haven't exhausted connections
