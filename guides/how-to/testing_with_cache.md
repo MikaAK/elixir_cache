@@ -50,8 +50,8 @@ To use the sandbox functionality in your tests, you need to start the `Cache.San
 # In test/test_helper.exs
 ExUnit.start()
 
-# Start the sandbox registry for your tests
-{:ok, _pid} = Cache.SandboxRegistry.start_link()
+# Start the sandbox registry for your tests (no arguments needed)
+Cache.SandboxRegistry.start_link()
 
 # Start your application's supervision tree
 Application.ensure_all_started(:my_app)

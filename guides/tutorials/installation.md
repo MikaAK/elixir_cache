@@ -9,7 +9,7 @@ Add `:elixir_cache` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:elixir_cache, "~> 0.3.8"}
+    {:elixir_cache, "~> 0.3"}
   ]
 end
 ```

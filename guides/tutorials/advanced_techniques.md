@@ -7,7 +7,7 @@ This tutorial covers more advanced patterns and techniques for using ElixirCache
 Setting appropriate TTL values is important for efficient cache usage:
 
 ```elixir
-# Cache for 10 seconds
+# Cache for 10 seconds (TTL in milliseconds as second argument)
 MyApp.Cache.put("short-lived-key", :timer.seconds(10), %{data: "expires quickly"})
 
 # Cache for 1 hour
@@ -16,7 +16,7 @@ MyApp.Cache.put("hourly-key", :timer.hours(1), %{data: "expires in an hour"})
 # Cache for 1 day
 MyApp.Cache.put("daily-key", :timer.hours(24), %{data: "expires in a day"})
 
-# Cache indefinitely (no TTL)
+# Cache indefinitely (no TTL) - value is second argument when no TTL
 MyApp.Cache.put("permanent-key", %{data: "never expires"})
 ```
 
@@ -37,8 +37,8 @@ defmodule MyApp.MemoizedCalculator do
         # Calculate the result if not in cache
         result = calculate_factorial(n)
         
-        # Store in cache for future use (cache for 1 hour)
-        cache.put(cache_key, 3600, result)
+        # Store in cache for future use (cache for 1 hour, TTL in ms)
+        cache.put(cache_key, :timer.hours(1), result)
         
         result
     end
@@ -140,7 +140,7 @@ defmodule MyApp.PostRepository do
       _ ->
         # Query from database if not in cache
         with {:ok, posts} <- fetch_featured_posts_from_db() do
-          # Cache for 15 minutes
+          # Cache for 15 minutes (TTL as second argument)
           :ok = MyApp.Cache.put(cache_key, :timer.minutes(15), posts)
           {:ok, posts}
         end

@@ -18,10 +18,45 @@ defmodule Cache.DETS do
   ]
 
   @moduledoc """
-  DETS adapter so that we can use dets as a cache
+  DETS (Disk Erlang Term Storage) adapter for persistent disk-based caching.
+
+  This adapter provides persistent storage using Erlang's DETS tables, which store data
+  on disk. It's ideal for applications that need cache persistence across restarts.
+
+  ## Features
+
+  * Persistent disk-based storage
+  * Survives application restarts
+  * Direct access to DETS-specific operations
+  * Configurable file path and table type
 
   ## Options
   #{NimbleOptions.docs(@opts_definition)}
+
+  ## Example
+
+      defmodule MyApp.PersistentCache do
+        use Cache,
+          adapter: Cache.DETS,
+          name: :persistent_cache,
+          opts: [
+            file_path: "/tmp/cache",
+            type: :set
+          ]
+      end
+
+  ## Usage
+
+      iex> {:ok, _pid} = Cache.DETS.start_link(table_name: :doctest_dets_cache, file_path: "/tmp")
+      iex> Process.sleep(10)
+      iex> Cache.DETS.put(:doctest_dets_cache, "key", nil, "value")
+      :ok
+      iex> Cache.DETS.get(:doctest_dets_cache, "key")
+      {:ok, "value"}
+      iex> Cache.DETS.delete(:doctest_dets_cache, "key")
+      :ok
+      iex> Cache.DETS.get(:doctest_dets_cache, "key")
+      {:ok, nil}
   """
 
   use Task, restart: :permanent

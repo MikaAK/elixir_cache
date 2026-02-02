@@ -1,5 +1,18 @@
 defmodule Cache.Redis.Hash do
-  @moduledoc false
+  @moduledoc """
+  Redis Hash operations for the Redis cache adapter.
+
+  This module provides hash-specific Redis operations including HGET, HSET,
+  HGETALL, HMGET, HDEL, and HVALS. Hash fields and values are automatically
+  encoded/decoded using `Cache.TermEncoder`.
+
+  ## Features
+
+  * Hash field get/set operations with automatic encoding
+  * Bulk operations for getting/setting multiple fields
+  * Hash scanning with field-value pair decoding
+  * TTL support for hash keys via PEXPIRE
+  """
 
   alias Cache.{Redis, TermEncoder}
 

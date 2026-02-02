@@ -18,20 +18,30 @@ defmodule Cache.Sandbox do
 
   The Sandbox adapter is typically enabled through the `sandbox?` option when defining a cache module:
 
-  ```elixir
-  defmodule MyApp.TestCache do
-    use Cache,
-      adapter: Cache.Redis,  # Original adapter doesn't matter when sandbox is enabled
-      name: :test_cache,
-      opts: [],
-      sandbox?: Mix.env() == :test
-  end
-  ```
+      defmodule MyApp.TestCache do
+        use Cache,
+          adapter: Cache.Redis,
+          name: :test_cache,
+          opts: [],
+          sandbox?: Mix.env() == :test
+      end
 
   In your tests, use `Cache.SandboxRegistry.start(MyApp.TestCache)` in the setup block to ensure
   proper isolation between test cases.
 
   > **Note**: This adapter should not be used in production environments.
+
+  ## Basic Operations
+
+      iex> {:ok, _pid} = Cache.Sandbox.start_link(name: :test_sandbox_cache)
+      iex> Cache.Sandbox.put(:test_sandbox_cache, "key", nil, "value")
+      :ok
+      iex> Cache.Sandbox.get(:test_sandbox_cache, "key")
+      {:ok, "value"}
+      iex> Cache.Sandbox.delete(:test_sandbox_cache, "key")
+      :ok
+      iex> Cache.Sandbox.get(:test_sandbox_cache, "key")
+      {:ok, nil}
   """
 
   use Agent

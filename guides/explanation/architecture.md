@@ -18,9 +18,9 @@ At the heart of ElixirCache is the `Cache` behaviour, which defines the contract
 
 - `child_spec/1`: Defines how the cache is started and supervised
 - `opts_definition/0`: Defines adapter-specific options
-- `put/5`: Stores a value in the cache
-- `get/3`: Retrieves a value from the cache
-- `delete/3`: Removes a value from the cache
+- `put/4` and `put/5`: Stores a value in the cache (with optional opts)
+- `get/2` and `get/3`: Retrieves a value from the cache (with optional opts)
+- `delete/2` and `delete/3`: Removes a value from the cache (with optional opts)
 
 Each adapter implements these functions, allowing your application code to remain the same regardless of which cache backend you use.
 

@@ -1,8 +1,45 @@
 defmodule Cache.SandboxRegistry do
   @moduledoc """
-  This module is used to start the sandbox registry and register caches in test mode
+  Registry for managing isolated cache namespaces in test environments.
 
-  More details soon...
+  This module provides process-based isolation for cache operations during testing,
+  ensuring that concurrent tests don't interfere with each other's cached data.
+
+  ## Features
+
+  * Process-based cache isolation for concurrent tests
+  * Automatic namespace generation per test process
+  * Simple setup for ExUnit integration
+
+  ## Setup
+
+  Add to your `test_helper.exs`:
+
+      Cache.SandboxRegistry.start_link()
+
+  ## Usage in Tests
+
+      defmodule MyApp.SomeTest do
+        use ExUnit.Case, async: true
+
+        setup do
+          Cache.SandboxRegistry.start(MyApp.Cache)
+          :ok
+        end
+
+        test "caching works in isolation" do
+          MyApp.Cache.put("key", "value")
+          assert {:ok, "value"} = MyApp.Cache.get("key")
+        end
+      end
+
+  ## Example
+
+      iex> case Cache.SandboxRegistry.start_link() do
+      ...>   {:ok, pid} -> is_pid(pid)
+      ...>   {:error, {:already_started, pid}} -> is_pid(pid)
+      ...> end
+      true
   """
 
   @sleep_for_sync 50

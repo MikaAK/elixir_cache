@@ -1,5 +1,18 @@
 defmodule Cache.Redis.Global do
-  @moduledoc false
+  @moduledoc """
+  Global Redis operations and utilities for the Redis cache adapter.
+
+  This module provides core Redis functionality including command execution,
+  pipelining, and key scanning. It handles connection pooling via poolboy
+  and provides error handling for Redis operations.
+
+  ## Features
+
+  * Connection pool management via poolboy
+  * Command and pipeline execution
+  * Key scanning with pagination support
+  * Automatic error handling and response normalization
+  """
 
   @default_scan_count 10
 
