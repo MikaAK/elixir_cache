@@ -693,6 +693,8 @@ defmodule Cache.ETS do
       [value] -> {:ok, value}
       [] -> {:ok, nil}
     end
+  rescue
+    e -> {:error, ErrorMessage.internal_server_error(Exception.message(e), %{cache: cache_name, key: key})}
   end
 
   @impl Cache
@@ -701,6 +703,8 @@ defmodule Cache.ETS do
     :ets.insert(cache_name, {key, value})
 
     :ok
+  rescue
+    e -> {:error, ErrorMessage.internal_server_error(Exception.message(e), %{cache: cache_name, key: key})}
   end
 
   @impl Cache
@@ -709,5 +713,7 @@ defmodule Cache.ETS do
     :ets.delete(cache_name, key)
 
     :ok
+  rescue
+    e -> {:error, ErrorMessage.internal_server_error(Exception.message(e), %{cache: cache_name, key: key})}
   end
 end
