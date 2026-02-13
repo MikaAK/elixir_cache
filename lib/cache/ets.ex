@@ -640,6 +640,7 @@ defmodule Cache.ETS do
   end
 
   @impl Cache
+  @spec get(atom, atom | String.t(), Keyword.t()) :: ErrorMessage.t_res(any)
   def get(cache_name, key, _opts \\ []) do
     case :ets.lookup(cache_name, key) do
       [{^key, value}] -> {:ok, value}
@@ -650,6 +651,7 @@ defmodule Cache.ETS do
   end
 
   @impl Cache
+  @spec put(atom, atom | String.t(), pos_integer | nil, any, Keyword.t()) :: :ok | ErrorMessage.t()
   def put(cache_name, key, _ttl \\ nil, value, _opts \\ []) do
     :ets.insert(cache_name, {key, value})
 
@@ -657,6 +659,7 @@ defmodule Cache.ETS do
   end
 
   @impl Cache
+  @spec delete(atom, atom | String.t(), Keyword.t()) :: :ok | ErrorMessage.t()
   def delete(cache_name, key, _opts \\ []) do
     :ets.delete(cache_name, key)
 
