@@ -731,7 +731,11 @@ defmodule Cache.Sandbox do
   defp match_pattern?(object, pattern), do: match_element?(object, pattern)
 
   defp match_element?(_obj, :_), do: true
-  defp match_element?(_obj, pattern) when is_atom(pattern) and pattern !== :_, do: binding?(pattern) or false
+
+  defp match_element?(obj, pattern) when is_atom(pattern) do
+    if binding?(pattern), do: true, else: obj === pattern
+  end
+
   defp match_element?(obj, pattern), do: obj === pattern
 
   defp binding?(atom) when is_atom(atom) do
@@ -783,9 +787,14 @@ defmodule Cache.Sandbox do
     end)
   end
 
+  # NOTE: Guards are not evaluated in the sandbox. Implementing a full guard
+  # interpreter for match specs is non-trivial and unlikely to be needed in
+  # typical test scenarios. If you rely on guards in match specs, consider
+  # testing against the real adapter.
   defp apply_single_match_spec(object, {pattern, _guards, result_spec}) do
     if match_pattern?(object, pattern) do
-      [transform_result(object, result_spec)]
+      bindings = extract_numbered_bindings(object, pattern)
+      [transform_result(object, result_spec, bindings)]
     else
       []
     end
@@ -793,10 +802,71 @@ defmodule Cache.Sandbox do
 
   defp apply_single_match_spec(_object, _spec), do: []
 
-  defp transform_result(object, [:"$_"]), do: object
-  defp transform_result({key, _value}, [:"$$"]), do: [key]
-  defp transform_result(_object, [result]) when is_atom(result), do: result
-  defp transform_result(_object, result), do: result
+  defp extract_numbered_bindings(object, pattern)
+       when is_tuple(pattern) and is_tuple(object) do
+    object_list = Tuple.to_list(object)
+    pattern_list = Tuple.to_list(pattern)
+
+    object_list
+    |> Enum.zip(pattern_list)
+    |> Enum.reduce(%{}, fn {obj_elem, pat_elem}, acc ->
+      case parse_binding_number(pat_elem) do
+        nil -> acc
+        n -> Map.put(acc, n, obj_elem)
+      end
+    end)
+  end
+
+  defp extract_numbered_bindings(_object, _pattern), do: %{}
+
+  defp parse_binding_number(atom) when is_atom(atom) do
+    case Atom.to_string(atom) do
+      "$" <> rest ->
+        case Integer.parse(rest) do
+          {n, ""} -> n
+          _ -> nil
+        end
+
+      _ ->
+        nil
+    end
+  end
+
+  defp parse_binding_number(_), do: nil
+
+  defp transform_result(object, [:"$_"], _bindings), do: object
+
+  defp transform_result(_object, [:"$$"], bindings) do
+    bindings
+    |> Enum.sort_by(&elem(&1, 0))
+    |> Enum.map(&elem(&1, 1))
+  end
+
+  defp transform_result(_object, [result], bindings) do
+    resolve_bindings(result, bindings)
+  end
+
+  defp transform_result(_object, result, _bindings), do: result
+
+  defp resolve_bindings(atom, bindings) when is_atom(atom) do
+    case parse_binding_number(atom) do
+      nil -> atom
+      n -> Map.get(bindings, n, atom)
+    end
+  end
+
+  defp resolve_bindings(tuple, bindings) when is_tuple(tuple) do
+    tuple
+    |> Tuple.to_list()
+    |> Enum.map(&resolve_bindings(&1, bindings))
+    |> List.to_tuple()
+  end
+
+  defp resolve_bindings(list, bindings) when is_list(list) do
+    Enum.map(list, &resolve_bindings(&1, bindings))
+  end
+
+  defp resolve_bindings(value, _bindings), do: value
 
   def select_count(cache_name, match_spec) do
     Agent.get(cache_name, fn state ->
@@ -862,6 +932,7 @@ defmodule Cache.Sandbox do
   def info(cache_name) do
     Agent.get(cache_name, fn state ->
       [
+        name: cache_name,
         size: map_size(state),
         type: :set,
         named_table: true,
