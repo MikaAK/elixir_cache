@@ -119,20 +119,20 @@ defmodule CacheSandboxTest do
       assert {:ok, [1, 1]} = TestCache.hash_set_many([{key, [{"some_key", "some_value"}]}], 1_000)
     end
 
-    test "returns ok atom when ttl is not passed", %{key: key} do
-      assert :ok = TestCache.hash_set_many([{key, [{"some_key", "some_value"}]}])
+    test "returns ok tuple when ttl is not passed", %{key: key} do
+      assert {:ok, [1]} = TestCache.hash_set_many([{key, [{"some_key", "some_value"}]}])
     end
 
     test "accepts map and list values", %{key: key} do
       assert {:ok, [1, 1]} = TestCache.hash_set_many([{key, [{"some_key", "some_value"}]}], 1_000)
 
-      assert {:ok, [1, 1]} =
+      assert {:ok, [0, 1]} =
                TestCache.hash_set_many([{key, %{"some_key" => "some_value"}}], 1_000)
 
-      assert {:ok, [1, 1]} =
+      assert {:ok, [0, 1]} =
                TestCache.hash_set_many(%{key => [{"some_key", "some_value"}]}, 1_000)
 
-      assert {:ok, [1, 1]} =
+      assert {:ok, [0, 1]} =
                TestCache.hash_set_many(%{key => %{"some_key" => "some_value"}}, 1_000)
     end
   end

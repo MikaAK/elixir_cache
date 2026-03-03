@@ -129,6 +129,65 @@ defmodule Cache.ETSTest do
     end
   end
 
+  describe "rehydration_path" do
+    defmodule RehydrateTestCache do
+      use Cache,
+        adapter: Cache.ETS,
+        name: :rehydrate_test_cache,
+        opts: [rehydration_path: "/tmp/ets_test"]
+    end
+
+    defmodule NewTableTestCache do
+      use Cache,
+        adapter: Cache.ETS,
+        name: :new_table_test_cache,
+        opts: [rehydration_path: "/tmp/ets_test"]
+    end
+
+    test "rehydrates from file on startup" do
+      File.mkdir_p!("/tmp/ets_test")
+      on_exit(fn -> File.rm_rf("/tmp/ets_test") end)
+
+      encoded_value = Cache.TermEncoder.encode("persisted_value", nil)
+
+      :ets.new(:rehydrate_test_cache, [:set, :public, :named_table])
+      :ets.insert(:rehydrate_test_cache, {:persisted_key, encoded_value})
+      :ets.tab2file(:rehydrate_test_cache, ~c"/tmp/ets_test/rehydrate_test_cache.ets")
+      :ets.delete(:rehydrate_test_cache)
+
+      start_supervised!(
+        %{
+          id: :rehydrate_cache_sup,
+          type: :supervisor,
+          start: {Cache, :start_link, [[RehydrateTestCache], [name: :rehydrate_cache_sup]]}
+        }
+      )
+
+      Process.sleep(100)
+
+      assert {:ok, "persisted_value"} === RehydrateTestCache.get(:persisted_key)
+    end
+
+    test "creates new table when no file exists" do
+      File.mkdir_p!("/tmp/ets_test")
+      on_exit(fn -> File.rm_rf("/tmp/ets_test") end)
+
+      start_supervised!(
+        %{
+          id: :new_table_cache_sup,
+          type: :supervisor,
+          start: {Cache, :start_link, [[NewTableTestCache], [name: :new_table_cache_sup]]}
+        }
+      )
+
+      Process.sleep(100)
+
+      assert {:ok, nil} === NewTableTestCache.get(:nonexistent_key)
+      assert :ok === NewTableTestCache.put(:new_key, "new_value")
+      assert {:ok, "new_value"} === NewTableTestCache.get(:new_key)
+    end
+  end
+
   if function_exported?(:dets, :to_ets, 1) do
     describe "to_dets/2 and from_dets/2" do
       test "converts between ETS and DETS tables" do
