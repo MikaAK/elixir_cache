@@ -361,9 +361,9 @@ defmodule Cache.Sandbox do
     Agent.get(cache_name, fn state ->
       values =
         state
-        |> Enum.filter(fn {_key, value} -> scan_type_match?(value, type) end)
-        |> Enum.map(fn {key, _value} -> {key, scan_key(key)} end)
-        |> Enum.filter(fn {_key, match_key} -> scan_match?(match_key, match) end)
+        |> Stream.filter(fn {_key, value} -> scan_type_match?(value, type) end)
+        |> Stream.map(fn {key, _value} -> {key, scan_key(key)} end)
+        |> Stream.filter(fn {_key, match_key} -> scan_match?(match_key, match) end)
         |> Enum.map(fn {_key, match_key} -> match_key end)
         |> apply_scan_count(count)
 
