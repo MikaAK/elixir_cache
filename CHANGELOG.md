@@ -1,3 +1,7 @@
+# 0.4.0
+feat: add all ets/dets functions and ability for ets to rehydrate
+fix(con cache): allow concache to accept ets options
+
 # 0.3.13
 - fix: allow `Cache.ConCache` to accept `ets_options` (strict NimbleOptions validation + normalization)
 - feat: allow `Cache.ETS` `write_concurrency: :auto` (OTP 25+)
