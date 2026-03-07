@@ -95,6 +95,64 @@ defmodule Cache do
         use unquote(opts[:adapter])
       end
 
+      if unquote(opts[:sandbox?]) === true and unquote(opts[:adapter]) === Cache.ETS do
+        defoverridable update_counter: 2,
+                       update_counter: 3,
+                       insert_raw: 1,
+                       match_object: 1,
+                       match_object: 2
+
+        def update_counter(key, update_op) do
+          key = maybe_sandbox_key(key)
+          @cache_adapter.update_counter(@cache_name, key, update_op)
+        end
+
+        def update_counter(key, update_op, default) do
+          key = maybe_sandbox_key(key)
+          @cache_adapter.update_counter(@cache_name, key, update_op, default)
+        end
+
+        def insert_raw(data) when is_tuple(data) do
+          key = maybe_sandbox_key(elem(data, 0))
+
+          data =
+            if tuple_size(data) === 2 do
+              {key, elem(data, 1)}
+            else
+              put_elem(data, 0, key)
+            end
+
+          @cache_adapter.insert_raw(@cache_name, data)
+        end
+
+        def insert_raw(data) when is_list(data) do
+          data =
+            Enum.map(data, fn tuple ->
+              key = maybe_sandbox_key(elem(tuple, 0))
+
+              if tuple_size(tuple) === 2 do
+                {key, elem(tuple, 1)}
+              else
+                put_elem(tuple, 0, key)
+              end
+            end)
+
+          @cache_adapter.insert_raw(@cache_name, data)
+        end
+
+        def match_object(pattern) when is_tuple(pattern) do
+          @cache_adapter.match_object(@cache_name, pattern)
+        end
+
+        def match_object(continuation) when not is_tuple(continuation) do
+          @cache_adapter.match_object(@cache_name, continuation)
+        end
+
+        def match_object(pattern, limit) do
+          @cache_adapter.match_object(@cache_name, pattern, limit)
+        end
+      end
+
       def cache_name, do: @cache_name
       def cache_adapter, do: @cache_adapter
 
