@@ -6,7 +6,7 @@ This document provides a comprehensive overview of the ElixirCache API and all a
 
 These functions are available on any cache module that uses the `Cache` behavior.
 
-### put/3
+### put/2 and put/3
 
 ```elixir
 put(key, value)
@@ -16,7 +16,7 @@ put(key, ttl, value)
 Stores a value in the cache.
 
 - `key` - The key under which to store the value (atom or string)
-- `ttl` - Optional time-to-live in seconds (integer)
+- `ttl` - Optional time-to-live in milliseconds (e.g. `:timer.seconds(60)`). Defaults to `nil` (no expiry).
 - `value` - The value to store (any Elixir term)
 
 Returns `:ok` or `{:error, reason}`.

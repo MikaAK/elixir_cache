@@ -21,9 +21,9 @@ defmodule MyApp.RedisCache do
     adapter: Cache.Redis,
     name: :my_app_redis,
     opts: [
-      host: "localhost",
-      port: 6379,
-      pool_size: 5
+      uri: "redis://localhost:6379",
+      size: 10,
+      max_overflow: 5
     ]
 end
 ```
@@ -46,7 +46,16 @@ end
 
 ## Redis Configuration Options
 
-The Redis adapter supports various configuration options:
+The Redis adapter accepts the following options:
+
+| Option | Type | Required | Description |
+|---|---|---|---|
+| `uri` | `string` | Yes | Redis connection URI (e.g. `"redis://localhost:6379"`, `"redis://:password@host:6379/0"`) |
+| `size` | `pos_integer` | No | Number of workers in the connection pool (default: 50) |
+| `max_overflow` | `pos_integer` | No | Maximum overflow workers the pool can create (default: 20) |
+| `strategy` | `:fifo` or `:lifo` | No | Queue strategy for the Poolboy connection pool |
+
+Authentication, database selection, and SSL are configured via the URI string:
 
 ```elixir
 defmodule MyApp.RedisCache do
@@ -54,30 +63,9 @@ defmodule MyApp.RedisCache do
     adapter: Cache.Redis,
     name: :my_app_redis,
     opts: [
-      # Connection settings
-      host: "redis.example.com",
-      port: 6379,
-      password: "your_password",  # Optional
-      database: 0,                # Optional, default is 0
-      
-      # Connection pool settings
-      pool_size: 10,              # Number of connections in the pool
-      max_overflow: 5,            # Maximum number of overflow workers
-      
-      # Timeout settings
-      timeout: 5000,              # Connection timeout in milliseconds
-      
-      # SSL options
-      ssl: true,                  # Enable SSL
-      ssl_opts: [                 # SSL options
-        verify: :verify_peer,
-        cacertfile: "/path/to/ca_certificate.pem",
-        certfile: "/path/to/client_certificate.pem",
-        keyfile: "/path/to/client_key.pem"
-      ],
-      
-      # Encoding options
-      compression_level: 1        # Level of compression (0-9, higher = more compression)
+      uri: "redis://:my_password@redis.example.com:6379/2",
+      size: 10,
+      max_overflow: 5
     ]
 end
 ```
@@ -92,10 +80,9 @@ defmodule MyApp.RedisCache do
     adapter: Cache.Redis,
     name: :my_app_redis,
     opts: [
-      host: System.get_env("REDIS_HOST", "localhost"),
-      port: String.to_integer(System.get_env("REDIS_PORT", "6379")),
-      password: System.get_env("REDIS_PASSWORD"),
-      pool_size: String.to_integer(System.get_env("REDIS_POOL_SIZE", "10"))
+      uri: System.get_env("REDIS_URL", "redis://localhost:6379"),
+      size: String.to_integer(System.get_env("REDIS_POOL_SIZE", "10")),
+      max_overflow: 5
     ]
 end
 ```

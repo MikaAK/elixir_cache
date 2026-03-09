@@ -8,9 +8,10 @@ ElixirCache is designed around a simple principle: provide a consistent interfac
 
 1. **Core Interface**: Defined by the `Cache` module
 2. **Adapters**: Backend-specific implementations
-3. **Term Encoder**: Handles serialization and compression
-4. **Telemetry Integration**: For observability and metrics
-5. **Sandbox System**: For isolated testing
+3. **Strategy Adapters**: Higher-level patterns that compose over adapters
+4. **Term Encoder**: Handles serialization and compression
+5. **Telemetry Integration**: For observability and metrics
+6. **Sandbox System**: For isolated testing
 
 ## The Cache Behaviour
 
@@ -81,6 +82,31 @@ A simple implementation using Elixir's Agent for lightweight in-memory storage.
 ### ConCache Adapter
 
 Wraps the ConCache library to provide its expiration and callback capabilities.
+
+## Strategy Adapters
+
+Strategy adapters implement the `Cache.Strategy` behaviour and compose over
+regular adapters to provide higher-level caching patterns. They are specified
+using a tuple format: `adapter: {StrategyModule, UnderlyingAdapterOrConfig}`.
+
+### Cache.HashRing
+
+Distributes cache keys across Erlang cluster nodes using a consistent hash ring
+powered by `libring`. Operations are forwarded to the owning node via
+`:erpc.call/4`. The ring monitors node membership automatically.
+
+### Cache.MultiLayer
+
+Chains multiple cache modules together. Reads cascade fastest → slowest with
+automatic backfill on slower-layer hits. Writes go slowest → fastest to ensure
+durability before populating fast layers.
+
+### Cache.RefreshAhead
+
+Proactively refreshes values in the background before they expire. When a `get`
+detects a value is within the refresh window, it returns the current value
+immediately and spawns an async task to fetch a fresh one. Uses per-node ETS
+deduplication and cross-node `:global` locking to prevent redundant refreshes.
 
 ## Telemetry Integration
 
