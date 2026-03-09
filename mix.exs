@@ -84,6 +84,7 @@ defmodule ElixirCache.MixProject do
         "guides/tutorials/installation.md",
         "guides/tutorials/basic_operations.md",
         "guides/tutorials/advanced_techniques.md",
+        "guides/how-to/using_strategies.md",
         "guides/how-to/choosing_adapter.md",
         "guides/how-to/redis_setup.md",
         "guides/how-to/testing_with_cache.md",
