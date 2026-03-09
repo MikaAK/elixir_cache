@@ -51,7 +51,7 @@ defmodule MyApp.PersistentCache do
     adapter: Cache.DETS,
     name: :my_app_persistent_cache,
     opts: [
-      file: "cache_data.dets"
+      file_path: "/tmp/cache_data"
     ]
 end
 ```
@@ -71,9 +71,9 @@ defmodule MyApp.DistributedCache do
     adapter: Cache.Redis,
     name: :my_app_redis_cache,
     opts: [
-      host: "localhost",
-      port: 6379,
-      pool_size: 5
+      uri: "redis://localhost:6379",
+      size: 10,
+      max_overflow: 5
     ]
 end
 ```
@@ -143,24 +143,12 @@ defmodule MyApp.Cache do
     name: :my_app_cache,
     opts: get_opts()
 
-  defp get_adapter do
-    case Mix.env() do
-      :test -> Cache.Sandbox
-      :dev -> Cache.ETS
-      :prod -> Cache.Redis
-    end
-  end
-
-  defp get_opts do
-    case Mix.env() do
-      :test -> []
-      :dev -> [read_concurrency: true]
-      :prod -> [
-        host: System.get_env("REDIS_HOST", "localhost"),
-        port: String.to_integer(System.get_env("REDIS_PORT", "6379")),
-        pool_size: 10
-      ]
-    end
+  if Mix.env() === :test do
+    defp get_adapter, do: Cache.ETS
+    defp get_opts, do: []
+  else
+    defp get_adapter, do: Cache.Redis
+    defp get_opts, do: [uri: "redis://localhost:6379", size: 10]
   end
 end
 ```

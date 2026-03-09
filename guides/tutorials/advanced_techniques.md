@@ -52,39 +52,41 @@ end
 
 ## Implementing Cache Stampede Protection
 
-Cache stampede occurs when many requests try to regenerate a cached item simultaneously:
+Cache stampede occurs when many requests try to regenerate a cached item simultaneously.
+
+> **Tip**: ElixirCache ships with `Cache.RefreshAhead`, a strategy adapter that
+> handles this automatically with background refresh and per-key deduplication.
+> See the [Using Strategies](../how-to/using_strategies.md) guide.
+
+If you need a manual approach without the strategy adapter:
 
 ```elixir
 defmodule MyApp.StampedeProtection do
-  # Stale-while-revalidate pattern
   def get_with_protection(key, ttl, stale_ttl, generator_fn) do
     case MyApp.Cache.get(key) do
-      # Cache hit - return value
       {:ok, %{value: value, timestamp: ts}} ->
-        now = System.system_time(:second)
-        
-        # If stale but not expired, return stale value and trigger background refresh
+        now = System.system_time(:millisecond)
+
         if now - ts > stale_ttl and now - ts < ttl do
-          Task.start(fn -> 
-            refresh_cache(key, ttl, generator_fn) 
+          Task.start(fn ->
+            refresh_cache(key, ttl, generator_fn)
           end)
         end
-        
+
         {:ok, value}
-        
-      # Cache miss - generate and store
+
       _ ->
         refresh_cache(key, ttl, generator_fn)
     end
   end
-  
+
   defp refresh_cache(key, ttl, generator_fn) do
     with {:ok, value} <- generator_fn.() do
       cached_value = %{
         value: value,
         timestamp: System.system_time(:millisecond)
       }
-      
+
       MyApp.Cache.put(key, ttl, cached_value)
       {:ok, value}
     end
@@ -114,7 +116,7 @@ defmodule MyApp.UserCache do
   
   # Bulk invalidation in ETS cache
   def invalidate_all_users() do
-    if MyApp.Cache.cache_adapter() == Cache.ETS do
+    if MyApp.Cache.cache_adapter() === Cache.ETS do
       MyApp.Cache.match_delete({:"#{@prefix}_", :_})
     else
       # Fallback for other adapters without pattern matching
