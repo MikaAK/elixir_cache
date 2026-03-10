@@ -736,6 +736,10 @@ defmodule Cache.Sandbox do
     if binding?(pattern), do: true, else: obj === pattern
   end
 
+  defp match_element?(obj, pattern) when is_tuple(obj) and is_tuple(pattern) do
+    match_pattern?(obj, pattern)
+  end
+
   defp match_element?(obj, pattern), do: obj === pattern
 
   defp binding?(atom) when is_atom(atom) do
