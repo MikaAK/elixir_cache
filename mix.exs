@@ -114,6 +114,7 @@ defmodule ElixirCache.MixProject do
           Cache.Counter
         ],
         "Test Utils": [
+          Cache.CaseTemplate,
           Cache.Sandbox,
           Cache.SandboxRegistry
         ],

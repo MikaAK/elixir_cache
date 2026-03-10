@@ -3,7 +3,7 @@
 [![Test](https://github.com/MikaAK/elixir_cache/actions/workflows/test.yml/badge.svg)](https://github.com/MikaAK/elixir_cache/actions/workflows/test.yml)
 [![Credo](https://github.com/MikaAK/elixir_cache/actions/workflows/credo.yml/badge.svg)](https://github.com/MikaAK/elixir_cache/actions/workflows/credo.yml)
 [![Dialyzer](https://github.com/MikaAK/elixir_cache/actions/workflows/dialyzer.yml/badge.svg)](https://github.com/MikaAK/elixir_cache/actions/workflows/dialyzer.yml)
-[![Coverage](https://github.com/MikaAK/elixir_cache/actions/workflows/coverage.yml/badge.svg)](https://github.com/MikaAK/elixir_cache/actions/workflows/coverage.yml)
+[![Coverage](https://github.com/MikaAK/elixir_cache/actions/workflows/test.yml/badge.svg)](https://github.com/MikaAK/elixir_cache/actions/workflows/test.yml)
 
 The goal of this project is to unify Cache APIs and make Strategies easy to implement and sharable
 across all storage types/adapters
@@ -68,20 +68,50 @@ These adapter when used will add extra commands to your cache module.
 Our cache config accepts a `sandbox?: boolean`. In sandbox mode, the `Cache.Sandbox` adapter will be used, which is just a simple Agent cache unique to the root process. The `Cache.SandboxRegistry` is responsible for registering test processes to a
 unique instance of the Sandbox adapter cache. This makes it safe in test mode to run all your tests asynchronously!
 
-For test isolation via the `Cache.SandboxRegistry` to work, you must start the registry in your setup, or your test_helper.exs:
+For test isolation via the `Cache.SandboxRegistry` to work, you must start the registry in your `test/test_helper.exs`:
 
 ```elixir
-# test/test_helper.exs
-
-+ Cache.SandboxRegistry.start_link()
+Cache.SandboxRegistry.start_link()
 ExUnit.start()
-
 ```
 
-Then inside our `setup` for a test we can do:
+Then inside a `setup` block:
 
 ```elixir
 Cache.SandboxRegistry.start([MyCache, CacheItem])
+```
+
+### Cache.CaseTemplate
+
+For applications with many test files, use `Cache.CaseTemplate` to define a single `CacheCase` module that automatically starts sandboxed caches in every test that uses it.
+
+Create a `CacheCase` module in your test support directory:
+
+```elixir
+# test/support/cache_case.ex
+defmodule MyApp.CacheCase do
+  use Cache.CaseTemplate, default_caches: [MyApp.UserCache, MyApp.SessionCache]
+end
+```
+
+Or discover caches automatically from a running supervisor:
+
+```elixir
+defmodule MyApp.CacheCase do
+  use Cache.CaseTemplate, supervisors: [MyApp.Supervisor]
+end
+```
+
+Then use it in any test file:
+
+```elixir
+defmodule MyApp.SomeTest do
+  use ExUnit.Case, async: true
+  use MyApp.CacheCase
+
+  # optionally add extra caches just for this file:
+  # use MyApp.CacheCase, caches: [MyApp.ExtraCache]
+end
 ```
 
 ## Creating Adapters
