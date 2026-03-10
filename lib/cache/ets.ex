@@ -86,49 +86,49 @@ defmodule Cache.ETS do
       Returns a list of all ETS tables at the node.
       """
       def all do
-        :ets.all()
+        @cache_adapter.all()
       end
 
       @doc """
       Deletes the entire ETS table.
       """
       def delete_table do
-        :ets.delete(@cache_name)
+        @cache_adapter.delete_table(@cache_name)
       end
 
       @doc """
       Deletes all objects in the ETS table.
       """
       def delete_all_objects do
-        :ets.delete_all_objects(@cache_name)
+        @cache_adapter.delete_all_objects(@cache_name)
       end
 
       @doc """
       Deletes the exact object from the ETS table.
       """
       def delete_object(object) do
-        :ets.delete_object(@cache_name, object)
+        @cache_adapter.delete_object(@cache_name, object)
       end
 
       @doc """
       Reads a file produced by tab2file/1,2 and creates the corresponding table.
       """
       def file2tab(filename) do
-        :ets.file2tab(filename)
+        @cache_adapter.file2tab(filename)
       end
 
       @doc """
       Reads a file produced by tab2file/1,2 and creates the corresponding table with options.
       """
       def file2tab(filename, options) do
-        :ets.file2tab(filename, options)
+        @cache_adapter.file2tab(filename, options)
       end
 
       @doc """
       Returns the first key in the table.
       """
       def first do
-        :ets.first(@cache_name)
+        @cache_adapter.first(@cache_name)
       end
 
       if Cache.OTPVersion.otp_release_at_least?(26) do
@@ -136,7 +136,7 @@ defmodule Cache.ETS do
         Returns the first key and object(s) in the table. (OTP 26+)
         """
         def first_lookup do
-          :ets.first_lookup(@cache_name)
+          @cache_adapter.first_lookup(@cache_name)
         end
       end
 
@@ -144,56 +144,56 @@ defmodule Cache.ETS do
       Folds over all objects in the table from first to last.
       """
       def foldl(function, acc) do
-        :ets.foldl(function, acc, @cache_name)
+        @cache_adapter.foldl(@cache_name, function, acc)
       end
 
       @doc """
       Folds over all objects in the table from last to first.
       """
       def foldr(function, acc) do
-        :ets.foldr(function, acc, @cache_name)
+        @cache_adapter.foldr(@cache_name, function, acc)
       end
 
       @doc """
       Makes process pid the new owner of the table.
       """
       def give_away(pid, gift_data) do
-        :ets.give_away(@cache_name, pid, gift_data)
+        @cache_adapter.give_away(@cache_name, pid, gift_data)
       end
 
       @doc """
       Get information about the ETS table.
       """
       def info do
-        :ets.info(@cache_name)
+        @cache_adapter.info(@cache_name)
       end
 
       @doc """
       Get specific information about the ETS table.
       """
       def info(item) do
-        :ets.info(@cache_name, item)
+        @cache_adapter.info(@cache_name, item)
       end
 
       @doc """
       Replaces the existing objects of the table with objects created by calling the input function.
       """
       def init_table(init_fun) do
-        :ets.init_table(@cache_name, init_fun)
+        @cache_adapter.init_table(@cache_name, init_fun)
       end
 
       @doc """
       Insert raw data into the ETS table using the underlying :ets.insert/2 function.
       """
       def insert_raw(data) do
-        :ets.insert(@cache_name, data)
+        @cache_adapter.insert_raw(@cache_name, data)
       end
 
       @doc """
       Same as insert/2 except returns false if any object with the same key already exists.
       """
       def insert_new(data) do
-        :ets.insert_new(@cache_name, data)
+        @cache_adapter.insert_new(@cache_name, data)
       end
 
       @doc """
@@ -201,14 +201,14 @@ defmodule Cache.ETS do
       """
       # credo:disable-for-next-line Credo.Check.Readability.PredicateFunctionNames
       def is_compiled_ms(term) do
-        :ets.is_compiled_ms(term)
+        @cache_adapter.is_compiled_ms(term)
       end
 
       @doc """
       Returns the last key in the table (for ordered_set, otherwise same as first).
       """
       def last do
-        :ets.last(@cache_name)
+        @cache_adapter.last(@cache_name)
       end
 
       if Cache.OTPVersion.otp_release_at_least?(26) do
@@ -216,7 +216,7 @@ defmodule Cache.ETS do
         Returns the last key and object(s) in the table. (OTP 26+)
         """
         def last_lookup do
-          :ets.last_lookup(@cache_name)
+          @cache_adapter.last_lookup(@cache_name)
         end
       end
 
@@ -224,14 +224,16 @@ defmodule Cache.ETS do
       Returns a list of all objects with the given key.
       """
       def lookup(key) do
-        :ets.lookup(@cache_name, key)
+        key = maybe_sandbox_key(key)
+        @cache_adapter.lookup(@cache_name, key)
       end
 
       @doc """
       Returns the Pos:th element of the object with the given key.
       """
       def lookup_element(key, pos) do
-        :ets.lookup_element(@cache_name, key, pos)
+        key = maybe_sandbox_key(key)
+        @cache_adapter.lookup_element(@cache_name, key, pos)
       end
 
       if Cache.OTPVersion.otp_release_at_least?(26) do
@@ -239,7 +241,8 @@ defmodule Cache.ETS do
         Returns the Pos:th element of the object with the given key, or default if not found. (OTP 26+)
         """
         def lookup_element(key, pos, default) do
-          :ets.lookup_element(@cache_name, key, pos, default)
+          key = maybe_sandbox_key(key)
+          @cache_adapter.lookup_element(@cache_name, key, pos, default)
         end
       end
 
@@ -254,70 +257,72 @@ defmodule Cache.ETS do
       Matches the objects in the table against the pattern.
       """
       def match_pattern(pattern) do
-        :ets.match(@cache_name, pattern)
+        @cache_adapter.match_pattern(@cache_name, pattern)
       end
 
       @doc """
       Matches the objects in the table against the pattern with a limit.
       """
       def match_pattern(pattern, limit) do
-        :ets.match(@cache_name, pattern, limit)
+        @cache_adapter.match_pattern(@cache_name, pattern, limit)
       end
 
       @doc """
       Deletes all objects that match the pattern from the table.
       """
       def match_delete(pattern) do
-        :ets.match_delete(@cache_name, pattern)
+        @cache_adapter.match_delete(@cache_name, pattern)
       end
 
       @doc """
       Continues a match_object started with match_object/2.
       """
       def match_object(continuation) when not is_tuple(continuation) do
-        :ets.match_object(continuation)
+        @cache_adapter.match_object(@cache_name, continuation)
       end
 
       @doc """
       Match objects in the ETS table that match the given pattern.
       """
       def match_object(pattern) do
-        :ets.match_object(@cache_name, pattern)
+        @cache_adapter.match_object(@cache_name, pattern)
       end
 
       @doc """
       Match objects in the ETS table that match the given pattern with limit.
       """
       def match_object(pattern, limit) do
-        :ets.match_object(@cache_name, pattern, limit)
+        @cache_adapter.match_object(@cache_name, pattern, limit)
       end
 
       @doc """
       Transforms a match specification into an internal representation.
       """
       def match_spec_compile(match_spec) do
-        :ets.match_spec_compile(match_spec)
+        @cache_adapter.match_spec_compile(match_spec)
       end
 
       @doc """
       Executes the matching specified in a compiled match specification on a list of terms.
       """
       def match_spec_run(list, compiled_match_spec) do
-        :ets.match_spec_run(list, compiled_match_spec)
+        @cache_adapter.match_spec_run(list, compiled_match_spec)
       end
 
       @doc """
       Check if a key is a member of the ETS table.
       """
       def member(key) do
-        :ets.member(@cache_name, key)
+        key = maybe_sandbox_key(key)
+        @cache_adapter.member(@cache_name, key)
       end
 
       @doc """
       Returns the next key following the given key.
       """
       def next(key) do
-        :ets.next(@cache_name, key)
+        key = maybe_sandbox_key(key)
+        @cache_adapter.next(@cache_name, key)
       end
 
       if Cache.OTPVersion.otp_release_at_least?(26) do
@@ -325,7 +330,8 @@ defmodule Cache.ETS do
         Returns the next key and object(s) following the given key. (OTP 26+)
         """
         def next_lookup(key) do
-          :ets.next_lookup(@cache_name, key)
+          key = maybe_sandbox_key(key)
+          @cache_adapter.next_lookup(@cache_name, key)
         end
       end
 
@@ -333,7 +339,8 @@ defmodule Cache.ETS do
       Returns the previous key preceding the given key (for ordered_set).
       """
       def prev(key) do
-        :ets.prev(@cache_name, key)
+        key = maybe_sandbox_key(key)
+        @cache_adapter.prev(@cache_name, key)
       end
 
       if Cache.OTPVersion.otp_release_at_least?(26) do
@@ -341,7 +348,8 @@ defmodule Cache.ETS do
         Returns the previous key and object(s) preceding the given key. (OTP 26+)
         """
         def prev_lookup(key) do
-          :ets.prev_lookup(@cache_name, key)
+          key = maybe_sandbox_key(key)
+          @cache_adapter.prev_lookup(@cache_name, key)
         end
       end
 
@@ -349,21 +357,21 @@ defmodule Cache.ETS do
       Renames the table to the new name.
       """
       def rename(name) do
-        :ets.rename(@cache_name, name)
+        @cache_adapter.rename(@cache_name, name)
       end
 
       @doc """
       Restores an opaque continuation that has passed through external term format.
       """
       def repair_continuation(continuation, match_spec) do
-        :ets.repair_continuation(continuation, match_spec)
+        @cache_adapter.repair_continuation(continuation, match_spec)
       end
 
       @doc """
       Fixes the table for safe traversal.
       """
       def safe_fixtable(fix) do
-        :ets.safe_fixtable(@cache_name, fix)
+        @cache_adapter.safe_fixtable(@cache_name, fix)
       end
 
       @doc """
@@ -377,35 +385,35 @@ defmodule Cache.ETS do
       Select objects from the ETS table using a match specification.
       """
       def select(match_spec) do
-        :ets.select(@cache_name, match_spec)
+        @cache_adapter.select(@cache_name, match_spec)
       end
 
       @doc """
       Select objects from the ETS table using a match specification with limit.
       """
       def select(match_spec, limit) do
-        :ets.select(@cache_name, match_spec, limit)
+        @cache_adapter.select(@cache_name, match_spec, limit)
       end
 
       @doc """
       Counts the objects matching the match specification.
       """
       def select_count(match_spec) do
-        :ets.select_count(@cache_name, match_spec)
+        @cache_adapter.select_count(@cache_name, match_spec)
       end
 
       @doc """
       Delete objects from the ETS table using a match specification.
       """
       def select_delete(match_spec) do
-        :ets.select_delete(@cache_name, match_spec)
+        @cache_adapter.select_delete(@cache_name, match_spec)
       end
 
       @doc """
       Replaces objects matching the match specification with the match specification result.
       """
       def select_replace(match_spec) do
-        :ets.select_replace(@cache_name, match_spec)
+        @cache_adapter.select_replace(@cache_name, match_spec)
       end
 
       @doc """
@@ -419,105 +427,109 @@ defmodule Cache.ETS do
       Like select/1 but returns the list in reverse order for ordered_set.
       """
       def select_reverse(match_spec) do
-        :ets.select_reverse(@cache_name, match_spec)
+        @cache_adapter.select_reverse(@cache_name, match_spec)
       end
 
       @doc """
       Like select/2 but traverses in reverse order for ordered_set.
       """
       def select_reverse(match_spec, limit) do
-        :ets.select_reverse(@cache_name, match_spec, limit)
+        @cache_adapter.select_reverse(@cache_name, match_spec, limit)
       end
 
       @doc """
       Sets table options (only heir is allowed after creation).
       """
       def setopts(opts) do
-        :ets.setopts(@cache_name, opts)
+        @cache_adapter.setopts(@cache_name, opts)
       end
 
       @doc """
       Returns the list of objects associated with slot I.
       """
       def slot(i) do
-        :ets.slot(@cache_name, i)
+        @cache_adapter.slot(@cache_name, i)
       end
 
       @doc """
       Dumps the table to a file.
       """
       def tab2file(filename) do
-        :ets.tab2file(@cache_name, filename)
+        @cache_adapter.tab2file(@cache_name, filename)
       end
 
       @doc """
       Dumps the table to a file with options.
       """
       def tab2file(filename, options) do
-        :ets.tab2file(@cache_name, filename, options)
+        @cache_adapter.tab2file(@cache_name, filename, options)
       end
 
       @doc """
       Returns a list of all objects in the table.
       """
       def tab2list do
-        :ets.tab2list(@cache_name)
+        @cache_adapter.tab2list(@cache_name)
       end
 
       @doc """
       Returns information about the table dumped to file.
       """
       def tabfile_info(filename) do
-        :ets.tabfile_info(filename)
+        @cache_adapter.tabfile_info(filename)
       end
 
       @doc """
       Returns a QLC query handle for the table.
       """
       def table do
-        :ets.table(@cache_name)
+        @cache_adapter.table(@cache_name)
       end
 
       @doc """
       Returns a QLC query handle for the table with options.
       """
       def table(options) do
-        :ets.table(@cache_name, options)
+        @cache_adapter.table(@cache_name, options)
       end
 
       @doc """
       Returns and removes all objects with the given key.
       """
       def take(key) do
-        :ets.take(@cache_name, key)
+        key = maybe_sandbox_key(key)
+        @cache_adapter.take(@cache_name, key)
       end
 
       @doc """
       Tests a match specification against a tuple.
       """
       def test_ms(tuple, match_spec) do
-        :ets.test_ms(tuple, match_spec)
+        @cache_adapter.test_ms(tuple, match_spec)
       end
 
       @doc """
       Update a counter in the ETS table.
       """
       def update_counter(key, update_op) do
-        :ets.update_counter(@cache_name, key, update_op)
+        key = maybe_sandbox_key(key)
+        @cache_adapter.update_counter(@cache_name, key, update_op)
       end
 
       @doc """
       Update a counter in the ETS table with a default value.
       """
       def update_counter(key, update_op, default) do
-        :ets.update_counter(@cache_name, key, update_op, default)
+        key = maybe_sandbox_key(key)
+        @cache_adapter.update_counter(@cache_name, key, update_op, default)
       end
 
       @doc """
       Updates specific elements of an object.
       """
       def update_element(key, element_spec) do
-        :ets.update_element(@cache_name, key, element_spec)
+        key = maybe_sandbox_key(key)
+        @cache_adapter.update_element(@cache_name, key, element_spec)
       end
 
       if Cache.OTPVersion.otp_release_at_least?(26) do
@@ -525,7 +537,8 @@ defmodule Cache.ETS do
         Updates specific elements of an object with a default. (OTP 26+)
         """
         def update_element(key, element_spec, default) do
-          :ets.update_element(@cache_name, key, element_spec, default)
+          key = maybe_sandbox_key(key)
+          @cache_adapter.update_element(@cache_name, key, element_spec, default)
         end
       end
 
@@ -533,21 +546,21 @@ defmodule Cache.ETS do
       Returns the tid of this named table.
       """
       def whereis do
-        :ets.whereis(@cache_name)
+        @cache_adapter.whereis(@cache_name)
       end
 
       @doc """
       Convert an ETS table to a DETS table.
       """
       def to_dets(dets_table) do
-        :ets.to_dets(@cache_name, dets_table)
+        @cache_adapter.to_dets(@cache_name, dets_table)
       end
 
       @doc """
       Convert a DETS table to an ETS table.
       """
       def from_dets(dets_table) do
-        :ets.from_dets(@cache_name, dets_table)
+        @cache_adapter.from_dets(@cache_name, dets_table)
       end
     end
   end
@@ -716,4 +729,118 @@ defmodule Cache.ETS do
   rescue
     e -> {:error, ErrorMessage.internal_server_error(Exception.message(e), %{cache: cache_name, key: key})}
   end
+
+  # ETS-specific module-level functions called via @cache_adapter from the __using__ macro.
+
+  def all, do: :ets.all()
+
+  def delete_table(cache_name), do: :ets.delete(cache_name)
+
+  def delete_all_objects(cache_name), do: :ets.delete_all_objects(cache_name)
+
+  def delete_object(cache_name, object), do: :ets.delete_object(cache_name, object)
+
+  def file2tab(filename), do: :ets.file2tab(filename)
+  def file2tab(filename, options), do: :ets.file2tab(filename, options)
+
+  def first(cache_name), do: :ets.first(cache_name)
+
+  def first_lookup(cache_name), do: :ets.first_lookup(cache_name)
+
+  def foldl(cache_name, function, acc), do: :ets.foldl(function, acc, cache_name)
+
+  def foldr(cache_name, function, acc), do: :ets.foldr(function, acc, cache_name)
+
+  def give_away(cache_name, pid, gift_data), do: :ets.give_away(cache_name, pid, gift_data)
+
+  def info(cache_name), do: :ets.info(cache_name)
+  def info(cache_name, item), do: :ets.info(cache_name, item)
+
+  def init_table(cache_name, init_fun), do: :ets.init_table(cache_name, init_fun)
+
+  def insert_raw(cache_name, data), do: :ets.insert(cache_name, data)
+
+  def insert_new(cache_name, data), do: :ets.insert_new(cache_name, data)
+
+  # credo:disable-for-next-line Credo.Check.Readability.PredicateFunctionNames
+  def is_compiled_ms(term), do: :ets.is_compiled_ms(term)
+
+  def last(cache_name), do: :ets.last(cache_name)
+
+  def last_lookup(cache_name), do: :ets.last_lookup(cache_name)
+
+  def lookup(cache_name, key), do: :ets.lookup(cache_name, key)
+
+  def lookup_element(cache_name, key, pos), do: :ets.lookup_element(cache_name, key, pos)
+  def lookup_element(cache_name, key, pos, default), do: :ets.lookup_element(cache_name, key, pos, default)
+
+  def match_pattern(cache_name, pattern), do: :ets.match(cache_name, pattern)
+  def match_pattern(cache_name, pattern, limit), do: :ets.match(cache_name, pattern, limit)
+
+  def match_delete(cache_name, pattern), do: :ets.match_delete(cache_name, pattern)
+
+  def match_object(cache_name, pattern), do: :ets.match_object(cache_name, pattern)
+  def match_object(cache_name, pattern, limit), do: :ets.match_object(cache_name, pattern, limit)
+
+  def match_spec_compile(match_spec), do: :ets.match_spec_compile(match_spec)
+
+  def match_spec_run(list, compiled_match_spec), do: :ets.match_spec_run(list, compiled_match_spec)
+
+  def member(cache_name, key), do: :ets.member(cache_name, key)
+
+  def next(cache_name, key), do: :ets.next(cache_name, key)
+
+  def next_lookup(cache_name, key), do: :ets.next_lookup(cache_name, key)
+
+  def prev(cache_name, key), do: :ets.prev(cache_name, key)
+
+  def prev_lookup(cache_name, key), do: :ets.prev_lookup(cache_name, key)
+
+  def rename(cache_name, name), do: :ets.rename(cache_name, name)
+
+  def repair_continuation(continuation, match_spec), do: :ets.repair_continuation(continuation, match_spec)
+
+  def safe_fixtable(cache_name, fix), do: :ets.safe_fixtable(cache_name, fix)
+
+  def select(cache_name, match_spec), do: :ets.select(cache_name, match_spec)
+  def select(cache_name, match_spec, limit), do: :ets.select(cache_name, match_spec, limit)
+
+  def select_count(cache_name, match_spec), do: :ets.select_count(cache_name, match_spec)
+
+  def select_delete(cache_name, match_spec), do: :ets.select_delete(cache_name, match_spec)
+
+  def select_replace(cache_name, match_spec), do: :ets.select_replace(cache_name, match_spec)
+
+  def select_reverse(cache_name, match_spec), do: :ets.select_reverse(cache_name, match_spec)
+  def select_reverse(cache_name, match_spec, limit), do: :ets.select_reverse(cache_name, match_spec, limit)
+
+  def setopts(cache_name, opts), do: :ets.setopts(cache_name, opts)
+
+  def slot(cache_name, i), do: :ets.slot(cache_name, i)
+
+  def tab2file(cache_name, filename), do: :ets.tab2file(cache_name, filename)
+  def tab2file(cache_name, filename, options), do: :ets.tab2file(cache_name, filename, options)
+
+  def tab2list(cache_name), do: :ets.tab2list(cache_name)
+
+  def tabfile_info(filename), do: :ets.tabfile_info(filename)
+
+  def table(cache_name), do: :ets.table(cache_name)
+  def table(cache_name, options), do: :ets.table(cache_name, options)
+
+  def take(cache_name, key), do: :ets.take(cache_name, key)
+
+  def test_ms(tuple, match_spec), do: :ets.test_ms(tuple, match_spec)
+
+  def update_counter(cache_name, key, update_op), do: :ets.update_counter(cache_name, key, update_op)
+  def update_counter(cache_name, key, update_op, default), do: :ets.update_counter(cache_name, key, update_op, default)
+
+  def update_element(cache_name, key, element_spec), do: :ets.update_element(cache_name, key, element_spec)
+  def update_element(cache_name, key, element_spec, default), do: :ets.update_element(cache_name, key, element_spec, default)
+
+  def whereis(cache_name), do: :ets.whereis(cache_name)
+
+  def to_dets(cache_name, dets_table), do: :ets.to_dets(cache_name, dets_table)
+
+  def from_dets(cache_name, dets_table), do: :ets.from_dets(cache_name, dets_table)
 end
