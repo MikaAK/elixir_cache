@@ -15,13 +15,12 @@ defmodule Cache.SandboxRegistry do
   end
 
   def start(cache_or_caches) do
-    Cache.SandboxRegistry.register_caches(cache_or_caches)
+    caches = if is_list(cache_or_caches), do: cache_or_caches, else: [cache_or_caches]
 
-    if is_list(cache_or_caches) do
-      ExUnit.Callbacks.start_supervised!({Cache, cache_or_caches})
-    else
-      ExUnit.Callbacks.start_supervised!({Cache, [cache_or_caches]})
-    end
+    Cache.SandboxRegistry.register_caches(caches)
+
+    child_spec = %{Cache.child_spec(caches) | id: {Cache, make_ref()}}
+    ExUnit.Callbacks.start_supervised!(child_spec)
   end
 
   def register_caches(cache_module_or_modules, pid \\ self())
