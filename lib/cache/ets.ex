@@ -74,6 +74,8 @@ defmodule Cache.ETS do
   ```
   """
 
+  @compile {:no_warn_undefined, :ets}
+
   use Task, restart: :permanent
 
   @behaviour Cache
