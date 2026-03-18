@@ -5,7 +5,7 @@ defmodule Cache.CounterTest do
     use Cache,
       adapter: Cache.Counter,
       name: :test_counter_cache,
-      opts: [initial_size: 16]
+      opts: [initial_size: 64]
   end
 
   setup do
@@ -15,8 +15,8 @@ defmodule Cache.CounterTest do
   end
 
   describe "get/1" do
-    test "returns nil for an unknown key" do
-      assert {:ok, nil} === TestCounterCache.get(:unknown_key)
+    test "returns 0 for a key that has never been incremented" do
+      assert {:ok, 0} === TestCounterCache.get(:unknown_key)
     end
 
     test "returns integer value after increment" do
@@ -92,17 +92,17 @@ defmodule Cache.CounterTest do
   end
 
   describe "delete/1" do
-    test "removes the key so get returns nil" do
+    test "zeroes the slot so get returns 0" do
       TestCounterCache.increment(:del_key)
       assert :ok === TestCounterCache.delete(:del_key)
-      assert {:ok, nil} === TestCounterCache.get(:del_key)
+      assert {:ok, 0} === TestCounterCache.get(:del_key)
     end
 
-    test "is a no-op for a non-existent key" do
+    test "is a no-op for a key that has never been incremented" do
       assert :ok === TestCounterCache.delete(:never_set_del_key)
     end
 
-    test "after delete, incrementing creates a fresh counter" do
+    test "after delete, incrementing starts fresh from 0" do
       TestCounterCache.increment(:reuse_key, 10)
       TestCounterCache.delete(:reuse_key)
       TestCounterCache.increment(:reuse_key)
@@ -116,6 +116,14 @@ defmodule Cache.CounterTest do
       TestCounterCache.increment(:key_b, 7)
       assert {:ok, 3} === TestCounterCache.get(:key_a)
       assert {:ok, 7} === TestCounterCache.get(:key_b)
+    end
+  end
+
+  describe "concurrency" do
+    test "concurrent increments on a new key are all counted" do
+      tasks = for _ <- 1..100, do: Task.async(fn -> TestCounterCache.increment(:concurrent_key) end)
+      Enum.each(tasks, &Task.await/1)
+      assert {:ok, 100} === TestCounterCache.get(:concurrent_key)
     end
   end
 end

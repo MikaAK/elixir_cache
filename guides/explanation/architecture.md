@@ -94,10 +94,13 @@ rarely, such as configuration or lookup tables. TTL is not supported.
 ### Counter Adapter
 
 Uses Erlang's `:counters` module for lock-free atomic integer operations. The
-counter array reference and the key-to-index mapping are both stored in
-`:persistent_term`, giving every process direct access without messaging
-overhead. Provides `increment/1,2` and `decrement/1,2` in addition to the
-standard `Cache` interface.
+counter array reference is stored in `:persistent_term`, giving every process
+direct access without messaging overhead. The slot index for each key is
+computed deterministically via `:erlang.phash2(key, size) + 1`, eliminating
+any key-to-index bookkeeping and the race conditions that come with it. With a
+small `initial_size`, distinct keys may hash to the same slot; increase
+`initial_size` to reduce collision probability. Provides `increment/1,2` and
+`decrement/1,2` in addition to the standard `Cache` interface.
 
 ## Strategy Adapters
 

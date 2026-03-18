@@ -2,8 +2,14 @@ defmodule Cache.Counter do
   @opts_definition [
     initial_size: [
       type: :pos_integer,
-      default: 16,
-      doc: "Initial number of counter slots to pre-allocate"
+      default: 1,
+      doc: "Number of counter slots to pre-allocate. Increasing this reduces hash collision probability."
+    ],
+
+    write_concurrency: [
+      type: :boolean,
+      default: false,
+      doc: "Enable concurrent writes to different counter slots. When false, all writes serialize through a single process."
     ]
   ]
 
@@ -11,16 +17,27 @@ defmodule Cache.Counter do
   Atomic integer counter adapter backed by Erlang's `:counters` module.
 
   Counter values are stored in a lock-free `:counters` array. The array reference
-  and the key-to-index mapping are stored in `:persistent_term` so all processes
-  can access them without a process round-trip.
+  is stored in `:persistent_term` so all processes can access it without a
+  process round-trip. The slot index for each key is computed deterministically
+  via `:erlang.phash2(key, size) + 1`, eliminating any key-to-index bookkeeping
+  and the race conditions that come with it.
 
   ## Behaviour
 
   - `put/4` accepts only `1` or `-1` as values, acting as increment or decrement.
     Any other value returns an error.
-  - `get/2` returns the current integer value for a key, or `nil` if the key is unknown.
-  - `delete/2` removes a key from the index map and zeroes its counter slot.
+  - `get/2` returns the current integer value for a key. Returns `0` if the key
+    has never been incremented. Unlike most adapters, `get/2` never returns `nil`.
+  - `delete/2` zeroes the counter slot for the given key. Because multiple keys
+    may hash to the same slot (especially with a small `initial_size`), deleting
+    one key resets the slot shared by all keys that collide with it.
   - `increment/1,2` and `decrement/1,2` are injected into consumer modules via `use`.
+
+  ## Hash collisions
+
+  With a small `initial_size`, distinct keys may map to the same counter slot.
+  Operations on colliding keys are summed in that shared slot. Increase
+  `initial_size` to reduce collision probability.
 
   ## Options
   #{NimbleOptions.docs(@opts_definition)}
@@ -46,7 +63,6 @@ defmodule Cache.Counter do
   @behaviour Cache
 
   @ref_key :__counter_ref__
-  @index_map_key :__counter_index_map__
 
   defmacro __using__(_opts) do
     quote do
@@ -75,10 +91,10 @@ defmodule Cache.Counter do
   def start_link(opts) do
     Task.start_link(fn ->
       cache_name = opts[:table_name]
-      initial_size = opts[:initial_size] || 16
-      ref = :counters.new(initial_size, [:atomics])
+      initial_size = opts[:initial_size] || 1
+      counters_opts = if opts[:write_concurrency], do: [:atomics, :write_concurrency], else: [:atomics]
+      ref = :counters.new(initial_size, counters_opts)
       :persistent_term.put({cache_name, @ref_key}, ref)
-      :persistent_term.put({cache_name, @index_map_key}, %{})
       Process.hibernate(Function, :identity, [nil])
     end)
   end
@@ -92,18 +108,10 @@ defmodule Cache.Counter do
   end
 
   @impl Cache
-  @spec get(atom, atom | String.t(), Keyword.t()) :: ErrorMessage.t_res(integer | nil)
+  @spec get(atom, atom | String.t(), Keyword.t()) :: ErrorMessage.t_res(integer)
   def get(cache_name, key, _opts \\ []) do
-    index_map = get_index_map(cache_name)
-
-    case Map.get(index_map, key) do
-      nil ->
-        {:ok, nil}
-
-      index ->
-        ref = get_ref(cache_name)
-        {:ok, :counters.get(ref, index)}
-    end
+    ref = get_ref(cache_name)
+    {:ok, :counters.get(ref, compute_index(ref, key))}
   rescue
     exception ->
       {:error, ErrorMessage.internal_server_error(Exception.message(exception), %{cache: cache_name, key: key})}
@@ -115,8 +123,8 @@ defmodule Cache.Counter do
   def put(cache_name, key, ttl \\ nil, value, opts \\ [])
 
   def put(cache_name, key, _ttl, value, _opts) when value in [1, -1] do
-    {index, ref} = get_or_create_index(cache_name, key)
-    :counters.add(ref, index, value)
+    ref = get_ref(cache_name)
+    :counters.add(ref, compute_index(ref, key), value)
     :ok
   rescue
     exception ->
@@ -133,19 +141,9 @@ defmodule Cache.Counter do
   @impl Cache
   @spec delete(atom, atom | String.t(), Keyword.t()) :: :ok | ErrorMessage.t()
   def delete(cache_name, key, _opts \\ []) do
-    index_map = get_index_map(cache_name)
-
-    case Map.get(index_map, key) do
-      nil ->
-        :ok
-
-      index ->
-        ref = get_ref(cache_name)
-        :counters.put(ref, index, 0)
-        updated_map = Map.delete(index_map, key)
-        :persistent_term.put({cache_name, @index_map_key}, updated_map)
-        :ok
-    end
+    ref = get_ref(cache_name)
+    :counters.put(ref, compute_index(ref, key), 0)
+    :ok
   rescue
     exception ->
       {:error, ErrorMessage.internal_server_error(Exception.message(exception), %{cache: cache_name, key: key})}
@@ -153,8 +151,8 @@ defmodule Cache.Counter do
 
   @spec increment(atom, atom | String.t(), pos_integer) :: :ok | ErrorMessage.t()
   def increment(cache_name, key, step \\ 1) do
-    {index, ref} = get_or_create_index(cache_name, key)
-    :counters.add(ref, index, step)
+    ref = get_ref(cache_name)
+    :counters.add(ref, compute_index(ref, key), step)
     :ok
   rescue
     exception ->
@@ -163,8 +161,8 @@ defmodule Cache.Counter do
 
   @spec decrement(atom, atom | String.t(), pos_integer) :: :ok | ErrorMessage.t()
   def decrement(cache_name, key, step \\ 1) do
-    {index, ref} = get_or_create_index(cache_name, key)
-    :counters.add(ref, index, -step)
+    ref = get_ref(cache_name)
+    :counters.add(ref, compute_index(ref, key), -step)
     :ok
   rescue
     exception ->
@@ -175,32 +173,7 @@ defmodule Cache.Counter do
     :persistent_term.get({cache_name, @ref_key})
   end
 
-  defp get_index_map(cache_name) do
-    :persistent_term.get({cache_name, @index_map_key}, %{})
-  end
-
-  defp get_or_create_index(cache_name, key) do
-    index_map = get_index_map(cache_name)
-
-    case Map.get(index_map, key) do
-      nil ->
-        old_ref = get_ref(cache_name)
-        old_size = :counters.info(old_ref).size
-        new_size = old_size + 1
-        new_ref = :counters.new(new_size, [:atomics])
-
-        Enum.each(1..old_size, fn index ->
-          :counters.put(new_ref, index, :counters.get(old_ref, index))
-        end)
-
-        new_index = new_size
-        updated_map = Map.put(index_map, key, new_index)
-        :persistent_term.put({cache_name, @ref_key}, new_ref)
-        :persistent_term.put({cache_name, @index_map_key}, updated_map)
-        {new_index, new_ref}
-
-      index ->
-        {index, get_ref(cache_name)}
-    end
+  defp compute_index(ref, key) do
+    :erlang.phash2(key, :counters.info(ref).size) + 1
   end
 end
