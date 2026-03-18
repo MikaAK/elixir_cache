@@ -119,6 +119,32 @@ defmodule Cache.CounterTest do
     end
   end
 
+  describe "integer keys as direct slot indices" do
+    test "increment with integer key uses it as the slot index" do
+      assert :ok === TestCounterCache.increment(0)
+      assert {:ok, 1} === TestCounterCache.get(0)
+    end
+
+    test "different integer keys address different slots" do
+      TestCounterCache.increment(0, 3)
+      TestCounterCache.increment(1, 7)
+      assert {:ok, 3} === TestCounterCache.get(0)
+      assert {:ok, 7} === TestCounterCache.get(1)
+    end
+
+    test "delete with integer key zeroes that slot" do
+      TestCounterCache.increment(0, 5)
+      assert :ok === TestCounterCache.delete(0)
+      assert {:ok, 0} === TestCounterCache.get(0)
+    end
+
+    test "put with integer key increments the slot" do
+      assert :ok === TestCounterCache.put(0, 1)
+      assert :ok === TestCounterCache.put(0, 1)
+      assert {:ok, 2} === TestCounterCache.get(0)
+    end
+  end
+
   describe "concurrency" do
     test "concurrent increments on a new key are all counted" do
       tasks = for _ <- 1..100, do: Task.async(fn -> TestCounterCache.increment(:concurrent_key) end)

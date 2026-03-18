@@ -18,9 +18,16 @@ defmodule Cache.Counter do
 
   Counter values are stored in a lock-free `:counters` array. The array reference
   is stored in `:persistent_term` so all processes can access it without a
-  process round-trip. The slot index for each key is computed deterministically
-  via `:erlang.phash2(key, size) + 1`, eliminating any key-to-index bookkeeping
-  and the race conditions that come with it.
+  process round-trip.
+
+  The slot index for a key is determined as follows:
+
+  - **Integer key** — used directly as the 0-based slot index (`key + 1`
+    internally, since `:counters` is 1-based). Callers control exactly which
+    slot is accessed with no hashing involved.
+  - **Atom / string key** — index computed deterministically via
+    `:erlang.phash2(key, size) + 1`, eliminating any key-to-index bookkeeping
+    and the race conditions that come with it.
 
   ## Behaviour
 
@@ -108,7 +115,7 @@ defmodule Cache.Counter do
   end
 
   @impl Cache
-  @spec get(atom, atom | String.t(), Keyword.t()) :: ErrorMessage.t_res(integer)
+  @spec get(atom, atom | String.t() | non_neg_integer, Keyword.t()) :: ErrorMessage.t_res(integer)
   def get(cache_name, key, _opts \\ []) do
     ref = get_ref(cache_name)
     {:ok, :counters.get(ref, compute_index(ref, key))}
@@ -118,7 +125,7 @@ defmodule Cache.Counter do
   end
 
   @impl Cache
-  @spec put(atom, atom | String.t(), pos_integer | nil, 1 | -1, Keyword.t()) ::
+  @spec put(atom, atom | String.t() | non_neg_integer, pos_integer | nil, 1 | -1, Keyword.t()) ::
           :ok | ErrorMessage.t()
   def put(cache_name, key, ttl \\ nil, value, opts \\ [])
 
@@ -139,7 +146,7 @@ defmodule Cache.Counter do
   end
 
   @impl Cache
-  @spec delete(atom, atom | String.t(), Keyword.t()) :: :ok | ErrorMessage.t()
+  @spec delete(atom, atom | String.t() | non_neg_integer, Keyword.t()) :: :ok | ErrorMessage.t()
   def delete(cache_name, key, _opts \\ []) do
     ref = get_ref(cache_name)
     :counters.put(ref, compute_index(ref, key), 0)
@@ -149,7 +156,7 @@ defmodule Cache.Counter do
       {:error, ErrorMessage.internal_server_error(Exception.message(exception), %{cache: cache_name, key: key})}
   end
 
-  @spec increment(atom, atom | String.t(), pos_integer) :: :ok | ErrorMessage.t()
+  @spec increment(atom, atom | String.t() | non_neg_integer, pos_integer) :: :ok | ErrorMessage.t()
   def increment(cache_name, key, step \\ 1) do
     ref = get_ref(cache_name)
     :counters.add(ref, compute_index(ref, key), step)
@@ -159,7 +166,7 @@ defmodule Cache.Counter do
       {:error, ErrorMessage.internal_server_error(Exception.message(exception), %{cache: cache_name, key: key})}
   end
 
-  @spec decrement(atom, atom | String.t(), pos_integer) :: :ok | ErrorMessage.t()
+  @spec decrement(atom, atom | String.t() | non_neg_integer, pos_integer) :: :ok | ErrorMessage.t()
   def decrement(cache_name, key, step \\ 1) do
     ref = get_ref(cache_name)
     :counters.add(ref, compute_index(ref, key), -step)
@@ -172,6 +179,8 @@ defmodule Cache.Counter do
   defp get_ref(cache_name) do
     :persistent_term.get({cache_name, @ref_key})
   end
+
+  defp compute_index(_ref, key) when is_integer(key), do: key + 1
 
   defp compute_index(ref, key) do
     :erlang.phash2(key, :counters.info(ref).size) + 1
