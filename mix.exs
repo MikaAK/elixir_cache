@@ -109,7 +109,9 @@ defmodule ElixirCache.MixProject do
           Cache.ETS,
           Cache.DETS,
           Cache.Redis,
-          Cache.ConCache
+          Cache.ConCache,
+          Cache.PersistentTerm,
+          Cache.Counter
         ],
         "Test Utils": [
           Cache.Sandbox,
