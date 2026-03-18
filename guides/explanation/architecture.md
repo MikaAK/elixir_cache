@@ -83,6 +83,22 @@ A simple implementation using Elixir's Agent for lightweight in-memory storage.
 
 Wraps the ConCache library to provide its expiration and callback capabilities.
 
+### PersistentTerm Adapter
+
+Uses Erlang's `:persistent_term` storage for reads that require zero latency
+and no process round-trips. Values are stored globally accessible without
+locking. Write and delete operations are expensive (they copy the entire term
+table internally), so this adapter is only suitable for data that changes
+rarely, such as configuration or lookup tables. TTL is not supported.
+
+### Counter Adapter
+
+Uses Erlang's `:counters` module for lock-free atomic integer operations. The
+counter array reference and the key-to-index mapping are both stored in
+`:persistent_term`, giving every process direct access without messaging
+overhead. Provides `increment/1,2` and `decrement/1,2` in addition to the
+standard `Cache` interface.
+
 ## Strategy Adapters
 
 Strategy adapters implement the `Cache.Strategy` behaviour and compose over

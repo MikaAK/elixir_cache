@@ -55,13 +55,48 @@ MyModule.get("key") #> {:ok, "value"}
 - `Cache.Agent` - Simple agent based caching
 - `Cache.DETS`  - Disk persisted caching with [dets](https://www.erlang.org/doc/man/dets.html)
 - `Cache.ETS`   - Super quick in-memory cache with [`ets`](https://www.erlang.org/doc/man/ets.html)
-- `Cache.Redis` - Caching adapter using [Redix](https://github.com/whatyouhide/redix) & [Poolboy](https://github.com/devinus/poolboy), supports Redis JSON an Redis Hashes
+- `Cache.Redis` - Caching adapter using [Redix](https://github.com/whatyouhide/redix) & [Poolboy](https://github.com/devinus/poolboy), supports Redis JSON and Redis Hashes
 - `Cache.ConCache` - Wrapper around [ConCache](https://github.com/sasa1977/con_cache) library
+- `Cache.PersistentTerm` - Zero-latency reads for rarely-written data via Erlang's `:persistent_term`
+- `Cache.Counter` - Lock-free atomic integer counters via Erlang's `:counters` module
 
 #### Adapter Specific Functions
 Some adapters have specific functions such as redis which has hash functions and pipeline functions to make calls easier.
 
-These adapter when used will add extra commands to your cache module.
+These adapters when used will add extra commands to your cache module.
+
+`Cache.Counter` adds `increment/1,2` and `decrement/1,2` to your module:
+
+```elixir
+defmodule MyApp.CounterCache do
+  use Cache,
+    adapter: Cache.Counter,
+    name: :my_app_counter_cache,
+    opts: []
+end
+
+MyApp.CounterCache.increment(:page_views)
+MyApp.CounterCache.decrement(:active_users)
+{:ok, count} = MyApp.CounterCache.get(:page_views)
+```
+
+## Strategy Adapters
+
+Strategy adapters compose over existing adapters to provide higher-level caching patterns.
+Use a two-element tuple as the `adapter` option:
+
+```elixir
+use Cache,
+  adapter: {StrategyModule, UnderlyingAdapterOrConfig},
+  name: :my_cache,
+  opts: [strategy_opt: value, underlying_adapter_opt: value]
+```
+
+- `Cache.HashRing` - Distribute keys across Erlang cluster nodes via consistent hashing ([libring](https://hex.pm/packages/libring))
+- `Cache.MultiLayer` - Cascade reads/writes through multiple cache layers (e.g. ETS → Redis) with automatic backfill
+- `Cache.RefreshAhead` - Proactively refresh hot keys in the background before they expire
+
+See the [Using Strategy Adapters](guides/how-to/using_strategies.md) guide for full details.
 
 
 ## Sandboxing

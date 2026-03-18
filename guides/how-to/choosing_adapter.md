@@ -11,7 +11,9 @@ ElixirCache provides the following adapters:
 3. `Cache.Redis` - Redis-backed distributed cache
 4. `Cache.Agent` - Simple Agent-based in-memory cache
 5. `Cache.ConCache` - ConCache wrapper
-6. `Cache.Sandbox` - Isolated cache for testing
+6. `Cache.PersistentTerm` - Erlang `:persistent_term` for rarely-written values
+7. `Cache.Counter` - Lock-free atomic integer counters
+8. `Cache.Sandbox` - Isolated cache for testing
 
 ## Choosing an Adapter
 
@@ -113,6 +115,65 @@ defmodule MyApp.ConCache do
       global_ttl: :timer.minutes(10)
     ]
 end
+```
+
+### Cache.PersistentTerm
+
+**Best for:**
+- Configuration data or look-up tables that change infrequently
+- Extremely high-read, low-write workloads
+- Single-node or multi-node scenarios where write cost is acceptable
+
+Backed by Erlang's `:persistent_term` storage. Reads are constant-time and
+require no locking or process round-trips, making them faster than ETS for
+read-heavy workloads. However, every write or delete copies the entire
+persistent term table, so this adapter is **not suitable for frequently
+mutated keys**.
+
+> **Note:** TTL is not supported — values persist until explicitly deleted.
+
+**Configuration example:**
+
+```elixir
+defmodule MyApp.ConfigCache do
+  use Cache,
+    adapter: Cache.PersistentTerm,
+    name: :my_app_config_cache,
+    opts: []
+end
+```
+
+### Cache.Counter
+
+**Best for:**
+- Atomic integer counters (page views, rate limiting, event counts)
+- High-concurrency write workloads where lock-free semantics matter
+
+Backed by Erlang's `:counters` module, which provides lock-free atomic
+increment and decrement. Counter references and the key-to-index mapping are
+stored in `:persistent_term` so all processes can access them without a
+process round-trip.
+
+Using `use Cache` with this adapter injects `increment/1,2` and
+`decrement/1,2` into your module in addition to the standard `get/1`,
+`put/3`, and `delete/1` functions.
+
+> **Note:** `put/3` only accepts `1` or `-1` as values (increment/decrement).
+> Use `increment/1,2` and `decrement/1,2` for more ergonomic access.
+
+**Configuration example:**
+
+```elixir
+defmodule MyApp.CounterCache do
+  use Cache,
+    adapter: Cache.Counter,
+    name: :my_app_counter_cache,
+    opts: [initial_size: 32]
+end
+
+MyApp.CounterCache.increment(:page_views)
+MyApp.CounterCache.decrement(:active_users)
+{:ok, count} = MyApp.CounterCache.get(:page_views)
 ```
 
 ### Cache.Sandbox

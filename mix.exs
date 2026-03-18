@@ -4,7 +4,7 @@ defmodule ElixirCache.MixProject do
   def project do
     [
       app: :elixir_cache,
-      version: "0.4.0",
+      version: "0.4.1",
       elixir: "~> 1.11",
       start_permanent: Mix.env() == :prod,
       description:
@@ -112,6 +112,12 @@ defmodule ElixirCache.MixProject do
           Cache.ConCache,
           Cache.PersistentTerm,
           Cache.Counter
+        ],
+        Strategies: [
+          Cache.Strategy,
+          Cache.HashRing,
+          Cache.MultiLayer,
+          Cache.RefreshAhead
         ],
         "Test Utils": [
           Cache.CaseTemplate,
