@@ -99,6 +99,11 @@ defmodule Cache.Redis do
       end
 
       def hash_set_many(keys_fields_values, ttl \\ nil) do
+        keys_fields_values =
+          Enum.map(keys_fields_values, fn {key, fields_values} ->
+            {maybe_sandbox_key(key), fields_values}
+          end)
+
         @cache_adapter.hash_set_many(@cache_name, keys_fields_values, ttl, adapter_options())
       end
 

@@ -34,187 +34,358 @@ defmodule Cache do
   @callback delete(cache_name :: atom, key :: atom | String.t()) :: :ok | ErrorMessage.t()
 
   defmacro __using__(opts) do
-    quote do
-      opts = unquote(opts)
+    strategy? = is_tuple(Macro.expand(opts[:adapter], __CALLER__))
 
-      @cache_opts opts
-      @cache_name opts[:name]
-      @cache_adapter if opts[:sandbox?], do: Cache.Sandbox, else: opts[:adapter]
+    if strategy? do
+      quote do
+        @cache_opts unquote(opts)
+        @cache_name unquote(opts[:name])
+        {strategy_module, strategy_config} = unquote(opts[:adapter])
+        @cache_adapter strategy_module
+        @cache_strategy_module strategy_module
+        @cache_strategy_config strategy_config
 
-      if !opts[:adapter] do
-        raise "Must supply a cache adapter for #{__MODULE__}"
-      end
+        pre_check_runtime_options = fn
+          {_, _, _} = mfa ->
+            mfa
 
-      if !@cache_name do
-        raise "Must supply a cache name for #{__MODULE__}"
-      end
+          {_, _} = app_config ->
+            app_config
 
-      pre_check_runtime_options = fn
-        {_, _, _} = mfa ->
-          mfa
+          fun when is_function(fun, 0) ->
+            fun
 
-        {_, _} = app_config ->
-          app_config
+          app_name when is_atom(app_name) and not is_nil(app_name) ->
+            app_name
 
-        fun when is_function(fun, 0) ->
-          fun
+          val ->
+            raise ArgumentError, """
+            Bad option in adapter module #{inspect(__MODULE__)}!
 
-        app_name when is_atom(app_name) and not is_nil(app_name) ->
-          app_name
+            Expected one of the following:
 
-        val ->
-          raise ArgumentError, """
-          Bad option in adapter module #{inspect(__MODULE__)}!
+              * `{module, function, args}` - Module, function, args
+              * `{application_name, key}` - Application name. This is called as `Application.fetch_env!(application_name, key)`.
+              * `application_name` - Application name as an atom. This is called as `Application.fetch_env!(application_name, #{inspect(__MODULE__)})`.
+              * `function` - Zero arity callback function. For eg. `&YourModule.options/0`
+              * `[key: value_type]` - Keyword list of options.
 
-          Expected one of the following:
-
-            * `{module, function, args}` - Module, function, args
-            * `{application_name, key}` - Application name. This is called as `Application.fetch_env!(application_name, key)`.
-            * `application_name` - Application name as an atom. This is called as `Application.fetch_env!(application_name, #{inspect(__MODULE__)})`.
-            * `function` - Zero arity callback function. For eg. `&YourModule.options/0`
-            * `[key: value_type]` - Keyword list of options.
-
-          Got: #{inspect(val)}
-          """
-      end
-
-      check_adapter_opts = fn
-        adapter_opts when is_list(adapter_opts) ->
-          NimbleOptions.validate!(adapter_opts, @cache_adapter.opts_definition())
-
-        adapter_opts ->
-          pre_check_runtime_options.(adapter_opts)
-      end
-
-      adapter_opts = if opts[:sandbox?], do: [], else: check_adapter_opts.(opts[:opts])
-
-      @adapter_opts adapter_opts
-      @compression_level if is_list(@adapter_opts), do: @adapter_opts[:compression_level]
-
-      if macro_exported?(unquote(opts[:adapter]), :__using__, 1) do
-        use unquote(opts[:adapter])
-      end
-
-      def cache_name, do: @cache_name
-      def cache_adapter, do: @cache_adapter
-
-      def adapter_options, do: adapter_options!(@adapter_opts)
-
-      # Generate only the needed adapter_options!/1 clauses based on the actual adapter_opts
-      if match?({_, _, _}, @adapter_opts) do
-        defp adapter_options!({module, fun, args}), do: apply(module, fun, args)
-      end
-
-      if match?({_, _}, @adapter_opts) do
-        defp adapter_options!({app, key}), do: Application.fetch_env!(app, key)
-      end
-
-      if is_atom(@adapter_opts) and not is_nil(@adapter_opts) and not is_list(@adapter_opts) do
-        defp adapter_options!(app_name) when is_atom(app_name),
-          do: Application.fetch_env!(app_name, __MODULE__)
-      end
-
-      if is_function(@adapter_opts, 0) do
-        defp adapter_options!(fun) when is_function(fun, 0), do: fun.()
-      end
-
-      defp adapter_options!(options), do: options
-
-      # Dynamic error handler that compiler can't statically analyze
-      defp handle_adapter_result(result, operation, cache_name) do
-        with {:error, error} <- result do
-          :telemetry.execute(
-            [:elixir_cache, :cache, operation, :error],
-            %{count: 1},
-            %{
-              cache_name: cache_name,
-              error: error
-            }
-          )
-
-          result
+            Got: #{inspect(val)}
+            """
         end
-      end
 
-      def child_spec(_) do
-        @cache_adapter.child_spec({@cache_name, adapter_options()})
-      end
+        check_adapter_opts = fn
+          adapter_opts when is_list(adapter_opts) ->
+            strategy_keys = Keyword.keys(@cache_strategy_module.opts_definition())
+            strategy_opts = Keyword.take(adapter_opts, strategy_keys)
+            NimbleOptions.validate!(strategy_opts, @cache_strategy_module.opts_definition())
+            adapter_opts
 
-      def put(key, ttl \\ nil, value) do
-        value = Cache.TermEncoder.encode(value, @compression_level)
-        key = maybe_sandbox_key(key)
+          adapter_opts ->
+            pre_check_runtime_options.(adapter_opts)
+        end
 
-        :telemetry.span(
-          [:elixir_cache, :cache, :put],
-          %{cache_name: @cache_name},
-          fn ->
-            @cache_name
-            |> @cache_adapter.put(key, ttl, value, adapter_options())
-            |> handle_adapter_result(:put, @cache_name)
-            |> then(&{&1, %{cache_name: @cache_name}})
+        adapter_opts = check_adapter_opts.(unquote(opts[:opts]))
+
+        @adapter_opts adapter_opts
+        @compression_level if is_list(@adapter_opts), do: @adapter_opts[:compression_level]
+
+        def cache_name, do: @cache_name
+        def cache_adapter, do: @cache_adapter
+
+        def adapter_options do
+          opts = adapter_options!(@adapter_opts)
+          if is_list(opts), do: Keyword.put_new(opts, :__cache_module__, __MODULE__), else: opts
+        end
+
+        if match?({_, _, _}, @adapter_opts) do
+          defp adapter_options!({module, fun, args}), do: apply(module, fun, args)
+        end
+
+        if match?({_, _}, @adapter_opts) do
+          defp adapter_options!({app, key}), do: Application.fetch_env!(app, key)
+        end
+
+        if is_atom(@adapter_opts) and not is_nil(@adapter_opts) and not is_list(@adapter_opts) do
+          defp adapter_options!(app_name) when is_atom(app_name),
+            do: Application.fetch_env!(app_name, __MODULE__)
+        end
+
+        if is_function(@adapter_opts, 0) do
+          defp adapter_options!(fun) when is_function(fun, 0), do: fun.()
+        end
+
+        defp adapter_options!(options), do: options
+
+        defp handle_adapter_result(result, operation, cache_name) do
+          with {:error, error} <- result do
+            :telemetry.execute(
+              [:elixir_cache, :cache, operation, :error],
+              %{count: 1},
+              %{
+                cache_name: cache_name,
+                error: error
+              }
+            )
+
+            result
           end
-        )
-      end
+        end
 
-      def get(key) do
-        key = maybe_sandbox_key(key)
+        def child_spec(_) do
+          @cache_strategy_module.child_spec({@cache_name, @cache_strategy_config, adapter_options()})
+        end
 
-        :telemetry.span(
-          [:elixir_cache, :cache, :get],
-          %{cache_name: @cache_name},
-          fn ->
-            result =
+        def put(key, ttl \\ nil, value) do
+          key = maybe_sandbox_key(key)
+
+          :telemetry.span(
+            [:elixir_cache, :cache, :put],
+            %{cache_name: @cache_name},
+            fn ->
               @cache_name
-              |> @cache_adapter.get(key, adapter_options())
-              |> handle_adapter_result(:get, @cache_name)
-              |> case do
-                {:ok, nil} = res ->
-                  :telemetry.execute([:elixir_cache, :cache, :get, :miss], %{count: 1}, %{
-                    cache_name: @cache_name
-                  })
-
-                  res
-
-                {:ok, value} ->
-                  {:ok, Cache.TermEncoder.decode(value)}
-
-                {:error, _} = error ->
-                  error
-              end
-
-            {result, %{cache_name: @cache_name}}
-          end
-        )
-      end
-
-      def delete(key) do
-        key = maybe_sandbox_key(key)
-
-        :telemetry.span(
-          [:elixir_cache, :cache, :delete],
-          %{cache_name: @cache_name},
-          fn ->
-            @cache_name
-            |> @cache_adapter.delete(key, adapter_options())
-            |> handle_adapter_result(:delete, @cache_name)
-            |> then(&{&1, %{cache_name: @cache_name}})
-          end
-        )
-      end
-
-      def get_or_create(key, fnc) do
-        Cache.get_or_create(__MODULE__, key, fnc)
-      end
-
-      if @cache_opts[:sandbox?] do
-        defp maybe_sandbox_key(key) do
-          sandbox_id = Cache.SandboxRegistry.find!(__MODULE__)
-
-          "#{sandbox_id}:#{key}"
+              |> @cache_strategy_module.put(key, ttl, value, @cache_strategy_config, adapter_options())
+              |> handle_adapter_result(:put, @cache_name)
+              |> then(&{&1, %{cache_name: @cache_name}})
+            end
+          )
         end
-      else
-        defp maybe_sandbox_key(key) do
-          key
+
+        def get(key) do
+          key = maybe_sandbox_key(key)
+
+          :telemetry.span(
+            [:elixir_cache, :cache, :get],
+            %{cache_name: @cache_name},
+            fn ->
+              result =
+                @cache_name
+                |> @cache_strategy_module.get(key, @cache_strategy_config, adapter_options())
+                |> handle_adapter_result(:get, @cache_name)
+                |> case do
+                  {:ok, nil} = res ->
+                    :telemetry.execute([:elixir_cache, :cache, :get, :miss], %{count: 1}, %{
+                      cache_name: @cache_name
+                    })
+
+                    res
+
+                  {:ok, _} = res ->
+                    res
+
+                  {:error, _} = error ->
+                    error
+                end
+
+              {result, %{cache_name: @cache_name}}
+            end
+          )
+        end
+
+        def delete(key) do
+          key = maybe_sandbox_key(key)
+
+          :telemetry.span(
+            [:elixir_cache, :cache, :delete],
+            %{cache_name: @cache_name},
+            fn ->
+              @cache_name
+              |> @cache_strategy_module.delete(key, @cache_strategy_config, adapter_options())
+              |> handle_adapter_result(:delete, @cache_name)
+              |> then(&{&1, %{cache_name: @cache_name}})
+            end
+          )
+        end
+
+        def get_or_create(key, fnc) do
+          Cache.get_or_create(__MODULE__, key, fnc)
+        end
+
+        defp maybe_sandbox_key(key), do: key
+      end
+    else
+      quote do
+        opts = unquote(opts)
+
+        @cache_opts opts
+        @cache_name opts[:name]
+        @cache_adapter if opts[:sandbox?], do: Cache.Sandbox, else: opts[:adapter]
+
+        if !opts[:adapter] do
+          raise "Must supply a cache adapter for #{__MODULE__}"
+        end
+
+        if !@cache_name do
+          raise "Must supply a cache name for #{__MODULE__}"
+        end
+
+        pre_check_runtime_options = fn
+          {_, _, _} = mfa ->
+            mfa
+
+          {_, _} = app_config ->
+            app_config
+
+          fun when is_function(fun, 0) ->
+            fun
+
+          app_name when is_atom(app_name) and not is_nil(app_name) ->
+            app_name
+
+          val ->
+            raise ArgumentError, """
+            Bad option in adapter module #{inspect(__MODULE__)}!
+
+            Expected one of the following:
+
+              * `{module, function, args}` - Module, function, args
+              * `{application_name, key}` - Application name. This is called as `Application.fetch_env!(application_name, key)`.
+              * `application_name` - Application name as an atom. This is called as `Application.fetch_env!(application_name, #{inspect(__MODULE__)})`.
+              * `function` - Zero arity callback function. For eg. `&YourModule.options/0`
+              * `[key: value_type]` - Keyword list of options.
+
+            Got: #{inspect(val)}
+            """
+        end
+
+        check_adapter_opts = fn
+          adapter_opts when is_list(adapter_opts) ->
+            NimbleOptions.validate!(adapter_opts, @cache_adapter.opts_definition())
+
+          adapter_opts ->
+            pre_check_runtime_options.(adapter_opts)
+        end
+
+        adapter_opts = if opts[:sandbox?], do: [], else: check_adapter_opts.(opts[:opts])
+
+        @adapter_opts adapter_opts
+        @compression_level if is_list(@adapter_opts), do: @adapter_opts[:compression_level]
+
+        if macro_exported?(unquote(opts[:adapter]), :__using__, 1) do
+          use unquote(opts[:adapter])
+        end
+
+        def cache_name, do: @cache_name
+        def cache_adapter, do: @cache_adapter
+
+        def adapter_options, do: adapter_options!(@adapter_opts)
+
+        # Generate only the needed adapter_options!/1 clauses based on the actual adapter_opts
+        if match?({_, _, _}, @adapter_opts) do
+          defp adapter_options!({module, fun, args}), do: apply(module, fun, args)
+        end
+
+        if match?({_, _}, @adapter_opts) do
+          defp adapter_options!({app, key}), do: Application.fetch_env!(app, key)
+        end
+
+        if is_atom(@adapter_opts) and not is_nil(@adapter_opts) and not is_list(@adapter_opts) do
+          defp adapter_options!(app_name) when is_atom(app_name),
+            do: Application.fetch_env!(app_name, __MODULE__)
+        end
+
+        if is_function(@adapter_opts, 0) do
+          defp adapter_options!(fun) when is_function(fun, 0), do: fun.()
+        end
+
+        defp adapter_options!(options), do: options
+
+        # Dynamic error handler that compiler can't statically analyze
+        defp handle_adapter_result(result, operation, cache_name) do
+          with {:error, error} <- result do
+            :telemetry.execute(
+              [:elixir_cache, :cache, operation, :error],
+              %{count: 1},
+              %{
+                cache_name: cache_name,
+                error: error
+              }
+            )
+
+            result
+          end
+        end
+
+        def child_spec(_) do
+          @cache_adapter.child_spec({@cache_name, adapter_options()})
+        end
+
+        def put(key, ttl \\ nil, value) do
+          value = Cache.TermEncoder.encode(value, @compression_level)
+          key = maybe_sandbox_key(key)
+
+          :telemetry.span(
+            [:elixir_cache, :cache, :put],
+            %{cache_name: @cache_name},
+            fn ->
+              @cache_name
+              |> @cache_adapter.put(key, ttl, value, adapter_options())
+              |> handle_adapter_result(:put, @cache_name)
+              |> then(&{&1, %{cache_name: @cache_name}})
+            end
+          )
+        end
+
+        def get(key) do
+          key = maybe_sandbox_key(key)
+
+          :telemetry.span(
+            [:elixir_cache, :cache, :get],
+            %{cache_name: @cache_name},
+            fn ->
+              result =
+                @cache_name
+                |> @cache_adapter.get(key, adapter_options())
+                |> handle_adapter_result(:get, @cache_name)
+                |> case do
+                  {:ok, nil} = res ->
+                    :telemetry.execute([:elixir_cache, :cache, :get, :miss], %{count: 1}, %{
+                      cache_name: @cache_name
+                    })
+
+                    res
+
+                  {:ok, value} ->
+                    {:ok, Cache.TermEncoder.decode(value)}
+
+                  {:error, _} = error ->
+                    error
+                end
+
+              {result, %{cache_name: @cache_name}}
+            end
+          )
+        end
+
+        def delete(key) do
+          key = maybe_sandbox_key(key)
+
+          :telemetry.span(
+            [:elixir_cache, :cache, :delete],
+            %{cache_name: @cache_name},
+            fn ->
+              @cache_name
+              |> @cache_adapter.delete(key, adapter_options())
+              |> handle_adapter_result(:delete, @cache_name)
+              |> then(&{&1, %{cache_name: @cache_name}})
+            end
+          )
+        end
+
+        def get_or_create(key, fnc) do
+          Cache.get_or_create(__MODULE__, key, fnc)
+        end
+
+        if @cache_opts[:sandbox?] do
+          defp maybe_sandbox_key(key) do
+            sandbox_id = Cache.SandboxRegistry.find!(__MODULE__)
+
+            "#{sandbox_id}:#{key}"
+          end
+        else
+          defp maybe_sandbox_key(key) do
+            key
+          end
         end
       end
     end
