@@ -35,6 +35,10 @@ defmodule CacheSandboxTest do
     test "works to seperate caches between tests" do
       assert {:ok, nil} = TestCache.get(@cache_key)
     end
+
+    test "adapter gets swapped to sandbox adapter" do
+      assert TestCache.cache_adapter() === Cache.Sandbox
+    end
   end
 
   describe "&json_get/1" do
@@ -61,13 +65,13 @@ defmodule CacheSandboxTest do
                TestCache.json_get(key, [:some_array, 0])
     end
 
-    test "returns :error tuple if path not found" do
+    test "returns :error tuple if path not found", %{key: key} do
       assert {:error,
               %ErrorMessage{
                 message: "ERR Path '$.c.d' does not exist",
                 code: :not_found,
                 details: nil
-              }} === TestCache.json_get(@cache_key, ["c.d"])
+              }} === TestCache.json_get(key, ["c.d"])
     end
   end
 
