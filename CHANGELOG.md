@@ -1,3 +1,5 @@
+- chore: fix dialyzer
+
 # 0.4.4
 
 ## Bug Fixes
