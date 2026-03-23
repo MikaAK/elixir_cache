@@ -15,141 +15,119 @@ defmodule Cache.CounterTest do
   end
 
   describe "get/1" do
-    test "returns 0 for a key that has never been incremented" do
-      assert {:ok, 0} === TestCounterCache.get(:unknown_key)
+    test "returns 0 for a slot that has never been incremented" do
+      assert {:ok, 0} === TestCounterCache.get(0)
     end
 
     test "returns integer value after increment" do
-      TestCounterCache.increment(:get_test_key)
-      assert {:ok, 1} === TestCounterCache.get(:get_test_key)
+      TestCounterCache.increment(0)
+      assert {:ok, 1} === TestCounterCache.get(0)
+    end
+
+    test "returns error for out-of-bounds index" do
+      assert {:error, %ErrorMessage{code: :bad_request}} = TestCounterCache.get(64)
     end
   end
 
   describe "put/2 as increment/decrement" do
     test "put with 1 increments the counter" do
-      assert :ok === TestCounterCache.put(:put_inc_key, 1)
-      assert {:ok, 1} === TestCounterCache.get(:put_inc_key)
-      assert :ok === TestCounterCache.put(:put_inc_key, 1)
-      assert {:ok, 2} === TestCounterCache.get(:put_inc_key)
+      assert :ok === TestCounterCache.put(0, 1)
+      assert {:ok, 1} === TestCounterCache.get(0)
+      assert :ok === TestCounterCache.put(0, 1)
+      assert {:ok, 2} === TestCounterCache.get(0)
     end
 
     test "put with -1 decrements the counter" do
-      TestCounterCache.put(:put_dec_key, 1)
-      TestCounterCache.put(:put_dec_key, 1)
-      assert :ok === TestCounterCache.put(:put_dec_key, -1)
-      assert {:ok, 1} === TestCounterCache.get(:put_dec_key)
+      TestCounterCache.put(1, 1)
+      TestCounterCache.put(1, 1)
+      assert :ok === TestCounterCache.put(1, -1)
+      assert {:ok, 1} === TestCounterCache.get(1)
     end
 
     test "put with 0 returns an error" do
-      assert {:error, _} = TestCounterCache.put(:bad_key, 0)
+      assert {:error, _} = TestCounterCache.put(0, 0)
     end
 
     test "put with 2 returns an error" do
-      assert {:error, _} = TestCounterCache.put(:bad_key, 2)
+      assert {:error, _} = TestCounterCache.put(0, 2)
     end
 
     test "put with a string returns an error" do
-      assert {:error, _} = TestCounterCache.put(:bad_key, "up")
+      assert {:error, _} = TestCounterCache.put(0, "up")
     end
   end
 
   describe "increment/1,2" do
     test "increments by 1 by default" do
-      assert :ok === TestCounterCache.increment(:inc_key)
-      assert {:ok, 1} === TestCounterCache.get(:inc_key)
+      assert :ok === TestCounterCache.increment(2)
+      assert {:ok, 1} === TestCounterCache.get(2)
     end
 
     test "increments by the given step" do
-      assert :ok === TestCounterCache.increment(:inc_step_key, 5)
-      assert {:ok, 5} === TestCounterCache.get(:inc_step_key)
+      assert :ok === TestCounterCache.increment(3, 5)
+      assert {:ok, 5} === TestCounterCache.get(3)
     end
 
     test "increments multiple times" do
-      TestCounterCache.increment(:inc_multi_key)
-      TestCounterCache.increment(:inc_multi_key)
-      TestCounterCache.increment(:inc_multi_key)
-      assert {:ok, 3} === TestCounterCache.get(:inc_multi_key)
+      TestCounterCache.increment(4)
+      TestCounterCache.increment(4)
+      TestCounterCache.increment(4)
+      assert {:ok, 3} === TestCounterCache.get(4)
     end
   end
 
   describe "decrement/1,2" do
     test "decrements by 1 by default" do
-      TestCounterCache.increment(:dec_key, 3)
-      assert :ok === TestCounterCache.decrement(:dec_key)
-      assert {:ok, 2} === TestCounterCache.get(:dec_key)
+      TestCounterCache.increment(5, 3)
+      assert :ok === TestCounterCache.decrement(5)
+      assert {:ok, 2} === TestCounterCache.get(5)
     end
 
     test "decrements by the given step" do
-      TestCounterCache.increment(:dec_step_key, 10)
-      assert :ok === TestCounterCache.decrement(:dec_step_key, 4)
-      assert {:ok, 6} === TestCounterCache.get(:dec_step_key)
+      TestCounterCache.increment(6, 10)
+      assert :ok === TestCounterCache.decrement(6, 4)
+      assert {:ok, 6} === TestCounterCache.get(6)
     end
 
     test "can go negative" do
-      assert :ok === TestCounterCache.decrement(:neg_key, 5)
-      assert {:ok, -5} === TestCounterCache.get(:neg_key)
+      assert :ok === TestCounterCache.decrement(7, 5)
+      assert {:ok, -5} === TestCounterCache.get(7)
     end
   end
 
   describe "delete/1" do
-    test "zeroes the slot so get returns 0" do
-      TestCounterCache.increment(:del_key)
-      assert :ok === TestCounterCache.delete(:del_key)
-      assert {:ok, 0} === TestCounterCache.get(:del_key)
+    test "zeroes the slot" do
+      TestCounterCache.increment(8)
+      assert :ok === TestCounterCache.delete(8)
+      assert {:ok, 0} === TestCounterCache.get(8)
     end
 
-    test "is a no-op for a key that has never been incremented" do
-      assert :ok === TestCounterCache.delete(:never_set_del_key)
+    test "is a no-op for a slot that has never been incremented" do
+      assert :ok === TestCounterCache.delete(9)
     end
 
     test "after delete, incrementing starts fresh from 0" do
-      TestCounterCache.increment(:reuse_key, 10)
-      TestCounterCache.delete(:reuse_key)
-      TestCounterCache.increment(:reuse_key)
-      assert {:ok, 1} === TestCounterCache.get(:reuse_key)
+      TestCounterCache.increment(10, 10)
+      TestCounterCache.delete(10)
+      TestCounterCache.increment(10)
+      assert {:ok, 1} === TestCounterCache.get(10)
     end
   end
 
   describe "multiple keys are independent" do
     test "counters for different keys do not interfere" do
-      TestCounterCache.increment(:key_a, 3)
-      TestCounterCache.increment(:key_b, 7)
-      assert {:ok, 3} === TestCounterCache.get(:key_a)
-      assert {:ok, 7} === TestCounterCache.get(:key_b)
-    end
-  end
-
-  describe "integer keys as direct slot indices" do
-    test "increment with integer key uses it as the slot index" do
-      assert :ok === TestCounterCache.increment(0)
-      assert {:ok, 1} === TestCounterCache.get(0)
-    end
-
-    test "different integer keys address different slots" do
-      TestCounterCache.increment(0, 3)
-      TestCounterCache.increment(1, 7)
-      assert {:ok, 3} === TestCounterCache.get(0)
-      assert {:ok, 7} === TestCounterCache.get(1)
-    end
-
-    test "delete with integer key zeroes that slot" do
-      TestCounterCache.increment(0, 5)
-      assert :ok === TestCounterCache.delete(0)
-      assert {:ok, 0} === TestCounterCache.get(0)
-    end
-
-    test "put with integer key increments the slot" do
-      assert :ok === TestCounterCache.put(0, 1)
-      assert :ok === TestCounterCache.put(0, 1)
-      assert {:ok, 2} === TestCounterCache.get(0)
+      TestCounterCache.increment(11, 3)
+      TestCounterCache.increment(12, 7)
+      assert {:ok, 3} === TestCounterCache.get(11)
+      assert {:ok, 7} === TestCounterCache.get(12)
     end
   end
 
   describe "concurrency" do
-    test "concurrent increments on a new key are all counted" do
-      tasks = for _ <- 1..100, do: Task.async(fn -> TestCounterCache.increment(:concurrent_key) end)
+    test "concurrent increments on the same slot are all counted" do
+      tasks = for _ <- 1..100, do: Task.async(fn -> TestCounterCache.increment(13) end)
       Enum.each(tasks, &Task.await/1)
-      assert {:ok, 100} === TestCounterCache.get(:concurrent_key)
+      assert {:ok, 100} === TestCounterCache.get(13)
     end
   end
 end

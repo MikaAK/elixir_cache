@@ -33,8 +33,8 @@ defmodule Cache.Counter do
 
   - `put/4` accepts only `1` or `-1` as values, acting as increment or decrement.
     Any other value returns an error.
-  - `get/2` returns the current integer value for a key. Returns `0` if the key
-    has never been incremented. Unlike most adapters, `get/2` never returns `nil`.
+  - `get/2` accepts only a non-negative integer key and returns the current
+    integer value for that slot. Returns `0` if the slot has never been incremented.
   - `delete/2` zeroes the counter slot for the given key. Because multiple keys
     may hash to the same slot (especially with a small `initial_size`), deleting
     one key resets the slot shared by all keys that collide with it.
@@ -70,6 +70,7 @@ defmodule Cache.Counter do
   @behaviour Cache
 
   @ref_key :__counter_ref__
+  @size_key :__counter_size__
 
   defmacro __using__(_opts) do
     quote do
@@ -102,6 +103,7 @@ defmodule Cache.Counter do
       counters_opts = if opts[:write_concurrency], do: [:atomics, :write_concurrency], else: [:atomics]
       ref = :counters.new(initial_size, counters_opts)
       :persistent_term.put({cache_name, @ref_key}, ref)
+      :persistent_term.put({cache_name, @size_key}, initial_size)
       Process.hibernate(Function, :identity, [nil])
     end)
   end
@@ -116,12 +118,24 @@ defmodule Cache.Counter do
 
   @impl Cache
   @spec get(atom, atom | String.t() | non_neg_integer, Keyword.t()) :: ErrorMessage.t_res(integer)
-  def get(cache_name, key, _opts \\ []) do
-    ref = get_ref(cache_name)
-    {:ok, :counters.get(ref, compute_index(ref, key))}
+  def get(cache_name, key, _opts \\ [])
+
+  def get(cache_name, key, _opts) when is_integer(key) and key >= 0 do
+    size = get_size(cache_name)
+
+    if key < size do
+      ref = get_ref(cache_name)
+      {:ok, :counters.get(ref, key + 1)}
+    else
+      {:error, ErrorMessage.bad_request("integer key #{key} is out of bounds (initial_size: #{size})", %{cache: cache_name, key: key})}
+    end
   rescue
     exception ->
       {:error, ErrorMessage.internal_server_error(Exception.message(exception), %{cache: cache_name, key: key})}
+  end
+
+  def get(_cache_name, key, _opts) do
+    {:error, ErrorMessage.bad_request("Cache.Counter.get/3 requires a non_neg_integer key, got: #{inspect(key)}")}
   end
 
   @impl Cache
@@ -178,6 +192,10 @@ defmodule Cache.Counter do
 
   defp get_ref(cache_name) do
     :persistent_term.get({cache_name, @ref_key})
+  end
+
+  defp get_size(cache_name) do
+    :persistent_term.get({cache_name, @size_key})
   end
 
   defp compute_index(_ref, key) when is_integer(key), do: key + 1
