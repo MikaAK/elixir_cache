@@ -3,7 +3,7 @@ defmodule Cache.Counter do
     initial_size: [
       type: :pos_integer,
       default: 1,
-      doc: "Number of counter slots to pre-allocate. Increasing this reduces hash collision probability."
+      doc: "Number of counter slots to pre-allocate"
     ],
 
     write_concurrency: [
@@ -125,7 +125,8 @@ defmodule Cache.Counter do
 
     if key < size do
       ref = get_ref(cache_name)
-      {:ok, :counters.get(ref, key + 1)}
+      count = :counters.get(ref, key + 1)
+      {:ok, (if count === 0, do: nil, else: count)}
     else
       {:error, ErrorMessage.bad_request("integer key #{key} is out of bounds (initial_size: #{size})", %{cache: cache_name, key: key})}
     end

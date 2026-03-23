@@ -1,56 +1,33 @@
 defmodule CacheTest do
   use ExUnit.Case, async: true
 
-  defmodule TestCache.Redis do
-    use Cache,
-      adapter: Cache.Redis,
-      name: :test_cache_redis,
-      opts: [uri: "redis://localhost:6379"]
-  end
-
-  defmodule TestCache.ETS do
-    use Cache,
-      adapter: Cache.ETS,
-      name: :test_cache_ets,
-      opts: []
-  end
-
-  defmodule TestCache.DETS do
-    use Cache,
-      adapter: Cache.DETS,
-      name: :test_cache_dets,
-      opts: []
-  end
-
-  defmodule TestCache.DirtyConCache do
-    use Cache,
-      adapter: Cache.ConCache,
-      name: :test_cache_dirty_con_cache,
-      opts: []
-  end
-
-  defmodule TestCache.ConCache do
-    use Cache,
-      adapter: Cache.ConCache,
-      name: :test_cache_con_cache,
-      opts: [dirty?: false]
-  end
-
-  defmodule TestCache.Agent do
-    use Cache,
-      adapter: Cache.Agent,
-      name: :test_cache_agent,
-      opts: []
-  end
-
-  @adapters [
-    TestCache.Redis,
-    TestCache.DETS,
-    TestCache.ETS,
-    TestCache.Agent,
-    TestCache.ConCache,
-    TestCache.DirtyConCache
+  @adapter_configs [
+    {Cache.Redis, [opts: [uri: "redis://localhost:6379"]]},
+    {Cache.DETS, []},
+    {Cache.ETS, []},
+    {Cache.Agent, []},
+    {Cache.PersistentTerm, []},
+    {Cache.ConCache, [opts: [dirty?: false]]},
+    {Cache.ConCache, [name_suffix: "DirtyConCache", opts: []]}
   ]
+
+  @adapters Enum.map(@adapter_configs, fn {adapter, config} ->
+    suffix = Keyword.get(config, :name_suffix, adapter |> Module.split() |> List.last())
+    module_name = Module.concat(CacheTest.TestCache, suffix)
+    cache_name = :"test_cache_#{suffix |> Macro.underscore()}"
+    opts = Keyword.get(config, :opts, [])
+
+    module_contents = quote do
+      use Cache,
+        adapter: unquote(adapter),
+        name: unquote(cache_name),
+        opts: unquote(opts)
+    end
+
+    Module.create(module_name, module_contents, Macro.Env.location(__ENV__))
+
+    module_name
+  end)
 
   for adapter <- @adapters do
     describe "#{adapter} &get/1 & &put/2 & &delete/1" do
@@ -63,7 +40,7 @@ defmodule CacheTest do
       end
 
       test "puts into the cache and can get it back after" do
-        test_key = "#{Faker.Pokemon.name()}_#{Enum.random(1..100_000_000_000)}"
+        test_key = Enum.random(1..100_000_000)
         value = %{some_value: Faker.App.name()}
         cache_module = unquote(adapter)
 
@@ -76,7 +53,7 @@ defmodule CacheTest do
       end
 
       test "deleting from cache works" do
-        test_key = "#{Faker.Pokemon.name()}_#{Enum.random(1..100_000_000_000)}"
+        test_key = Enum.random(1..100_000_000)
         value = %{some_value: Faker.App.name()}
         cache_module = unquote(adapter)
 
@@ -92,7 +69,7 @@ defmodule CacheTest do
       end
 
       test "puts into the cache with nil acts like deleting" do
-        test_key = "#{Faker.Pokemon.name()}_#{Enum.random(1..100_000_000_000)}"
+        test_key = Enum.random(1..100_000_000)
         value = %{some_value: Faker.App.name()}
         cache_module = unquote(adapter)
 
@@ -120,7 +97,7 @@ defmodule CacheTest do
       end
 
       test "finds an item in the cache that already exists" do
-        test_key = "#{Faker.Pokemon.name()}_#{Enum.random(1..100_000_000_000)}"
+        test_key = Enum.random(1..100_000_000)
         value = %{some_value: Faker.App.name()}
         cache_module = unquote(adapter)
 
@@ -137,7 +114,7 @@ defmodule CacheTest do
       end
 
       test "creates a value for key when key doesn't exist in cache" do
-        test_key = "#{Faker.Pokemon.name()}_#{Enum.random(1..100_000_000_000)}"
+        test_key = Enum.random(1..100_000_000)
         value = %{some_value: Faker.App.name()}
         cache_module = unquote(adapter)
 

@@ -21,6 +21,7 @@ jobs:
 
     env:
       MIX_ENV: test
+      IS_CI: true
 
     steps:
       - uses: actions/checkout@v2

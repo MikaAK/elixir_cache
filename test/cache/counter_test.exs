@@ -15,8 +15,8 @@ defmodule Cache.CounterTest do
   end
 
   describe "get/1" do
-    test "returns 0 for a slot that has never been incremented" do
-      assert {:ok, 0} === TestCounterCache.get(0)
+    test "returns nil for a slot that has never been incremented" do
+      assert {:ok, nil} === TestCounterCache.get(0)
     end
 
     test "returns integer value after increment" do
@@ -99,7 +99,7 @@ defmodule Cache.CounterTest do
     test "zeroes the slot" do
       TestCounterCache.increment(8)
       assert :ok === TestCounterCache.delete(8)
-      assert {:ok, 0} === TestCounterCache.get(8)
+      assert {:ok, nil} === TestCounterCache.get(8)
     end
 
     test "is a no-op for a slot that has never been incremented" do

@@ -117,20 +117,20 @@ defmodule Cache do
 
         defp adapter_options!(options), do: options
 
-        defp handle_adapter_result(result, operation, cache_name) do
-          with {:error, error} <- result do
-            :telemetry.execute(
-              [:elixir_cache, :cache, operation, :error],
-              %{count: 1},
-              %{
-                cache_name: cache_name,
-                error: error
-              }
-            )
+        defp handle_adapter_result({:error, error} = result, operation, cache_name) do
+          :telemetry.execute(
+            [:elixir_cache, :cache, operation, :error],
+            %{count: 1},
+            %{
+              cache_name: cache_name,
+              error: error
+            }
+          )
 
-            result
-          end
+          result
         end
+
+        defp handle_adapter_result(result, _operation, _cache_name), do: result
 
         def child_spec(_) do
           @cache_strategy_module.child_spec({@cache_name, @cache_strategy_config, adapter_options()})
@@ -290,21 +290,20 @@ defmodule Cache do
 
         defp adapter_options!(options), do: options
 
-        # Dynamic error handler that compiler can't statically analyze
-        defp handle_adapter_result(result, operation, cache_name) do
-          with {:error, error} <- result do
-            :telemetry.execute(
-              [:elixir_cache, :cache, operation, :error],
-              %{count: 1},
-              %{
-                cache_name: cache_name,
-                error: error
-              }
-            )
+        defp handle_adapter_result({:error, error} = result, operation, cache_name) do
+          :telemetry.execute(
+            [:elixir_cache, :cache, operation, :error],
+            %{count: 1},
+            %{
+              cache_name: cache_name,
+              error: error
+            }
+          )
 
-            result
-          end
+          result
         end
+
+        defp handle_adapter_result(result, _operation, _cache_name), do: result
 
         def child_spec(_) do
           @cache_adapter.child_spec({@cache_name, adapter_options()})
