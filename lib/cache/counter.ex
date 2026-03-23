@@ -117,7 +117,7 @@ defmodule Cache.Counter do
   end
 
   @impl Cache
-  @spec get(atom, atom | String.t() | non_neg_integer, Keyword.t()) :: ErrorMessage.t_res(integer)
+  @spec get(atom, atom | String.t() | non_neg_integer, Keyword.t()) :: ErrorMessage.t_res(integer | nil)
   def get(cache_name, key, _opts \\ [])
 
   def get(cache_name, key, _opts) when is_integer(key) and key >= 0 do

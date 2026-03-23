@@ -1,71 +1,110 @@
 if System.get_env("IS_CI") == "true" do
-  adapter_configs = [
-    {Cache.Redis, [opts: [uri: "redis://localhost:6379"]]},
-    {Cache.DETS, []},
-    {Cache.ETS, []},
-    {Cache.Agent, []},
-    {Cache.Counter, [opts: [initial_size: 100_000_000]]},
-    {Cache.PersistentTerm, []},
-    {Cache.ConCache, [opts: [dirty?: false]]},
-    {Cache.ConCache, [name_suffix: "DirtyConCache", opts: []]}
-  ]
-
-  for {adapter, config} <- adapter_configs do
-    suffix = Keyword.get(config, :name_suffix, adapter |> Module.split() |> List.last())
-    module_name = Module.concat(TestCache, suffix)
-    cache_name = :"test_cache_#{suffix |> Macro.underscore()}"
-    opts = Keyword.get(config, :opts, [])
-
-    module_contents =
-      quote do
-        use Cache,
-          adapter: unquote(adapter),
-          name: unquote(cache_name),
-          opts: unquote(opts)
-      end
-
-    Module.create(module_name, module_contents, Macro.Env.location(__ENV__))
+  defmodule TestCache.Redis do
+    use Cache,
+      adapter: Cache.Redis,
+      name: :test_cache_redis,
+      opts: [uri: "redis://localhost:6379"]
   end
 
-  strategy_configs = [
-    {{Cache.RefreshAhead, Cache.ETS}, [name_suffix: "RefreshAheadETS", opts: [refresh_before: 500],
-      extra_fns: quote(do: (def refresh(key), do: {:ok, "refreshed:#{key}"}))]},
-    {{Cache.HashRing, Cache.ETS}, [name_suffix: "HashRingETS", opts: []]},
-    {{Cache.MultiLayer, [Cache.ETS, Cache.Agent]}, [name_suffix: "MultiLayerETS", opts: []]},
-    {Cache.ETS, [name_suffix: "Layer1", name_prefix: "test_multi_layer", opts: []]},
-    {Cache.Agent, [name_suffix: "Layer2", name_prefix: "test_multi_layer", opts: []]},
-    {{Cache.MultiLayer, [TestCache.Layer1, TestCache.Layer2]}, [name_suffix: "MultiLayerModules", opts: []]},
-    {{Cache.MultiLayer, [Cache.ETS]}, [name_suffix: "MultiLayerFetch", opts: [on_fetch: &TestCache.MultiLayerFetch.fetch/1],
-      extra_fns: quote(do: (def fetch(key), do: {:ok, "fetched:#{key}"}))]},
-  ]
+  defmodule TestCache.ETS do
+    use Cache,
+      adapter: Cache.ETS,
+      name: :test_cache_ets,
+      opts: []
+  end
 
-  for {adapter, config} <- strategy_configs do
-    suffix = Keyword.fetch!(config, :name_suffix)
-    name_prefix = Keyword.get(config, :name_prefix, "test_strategy")
-    module_name = Module.concat(TestCache, suffix)
-    cache_name = :"#{name_prefix}_#{suffix |> Macro.underscore()}"
-    opts = Keyword.get(config, :opts, [])
-    extra_fns = Keyword.get(config, :extra_fns)
+  defmodule TestCache.DETS do
+    use Cache,
+      adapter: Cache.DETS,
+      name: :test_cache_dets,
+      opts: []
+  end
 
-    module_contents =
-      if extra_fns do
-        quote do
-          use Cache,
-            adapter: unquote(adapter),
-            name: unquote(cache_name),
-            opts: unquote(opts)
+  defmodule TestCache.DirtyConCache do
+    use Cache,
+      adapter: Cache.ConCache,
+      name: :test_cache_dirty_con_cache,
+      opts: []
+  end
 
-          unquote(extra_fns)
-        end
-      else
-        quote do
-          use Cache,
-            adapter: unquote(adapter),
-            name: unquote(cache_name),
-            opts: unquote(opts)
-        end
-      end
+  defmodule TestCache.ConCache do
+    use Cache,
+      adapter: Cache.ConCache,
+      name: :test_cache_con_cache,
+      opts: [dirty?: false]
+  end
 
-    Module.create(module_name, module_contents, Macro.Env.location(__ENV__))
+  defmodule TestCache.Agent do
+    use Cache,
+      adapter: Cache.Agent,
+      name: :test_cache_agent,
+      opts: []
+  end
+
+  defmodule TestCache.Counter do
+    use Cache,
+      adapter: Cache.Counter,
+      name: :test_cache_counter,
+      opts: [initial_size: 100_000_000]
+  end
+
+  defmodule TestCache.PersistentTerm do
+    use Cache,
+      adapter: Cache.PersistentTerm,
+      name: :test_cache_persistent_term,
+      opts: []
+  end
+
+  defmodule TestCache.RefreshAheadETS do
+    use Cache,
+      adapter: {Cache.RefreshAhead, Cache.ETS},
+      name: :test_strategy_refresh_ahead_ets,
+      opts: [refresh_before: 500]
+
+    def refresh(key), do: {:ok, "refreshed:#{key}"}
+  end
+
+  defmodule TestCache.HashRingETS do
+    use Cache,
+      adapter: {Cache.HashRing, Cache.ETS},
+      name: :test_strategy_hash_ring_ets,
+      opts: []
+  end
+
+  defmodule TestCache.MultiLayerETS do
+    use Cache,
+      adapter: {Cache.MultiLayer, [Cache.ETS, Cache.Agent]},
+      name: :test_strategy_multi_layer_ets,
+      opts: []
+  end
+
+  defmodule TestCache.Layer1 do
+    use Cache,
+      adapter: Cache.ETS,
+      name: :test_multi_layer_layer1,
+      opts: []
+  end
+
+  defmodule TestCache.Layer2 do
+    use Cache,
+      adapter: Cache.Agent,
+      name: :test_multi_layer_layer2,
+      opts: []
+  end
+
+  defmodule TestCache.MultiLayerModules do
+    use Cache,
+      adapter: {Cache.MultiLayer, [TestCache.Layer1, TestCache.Layer2]},
+      name: :test_strategy_multi_layer_modules,
+      opts: []
+  end
+
+  defmodule TestCache.MultiLayerFetch do
+    use Cache,
+      adapter: {Cache.MultiLayer, [Cache.ETS]},
+      name: :test_strategy_multi_layer_fetch,
+      opts: [on_fetch: &__MODULE__.fetch/1]
+
+    def fetch(key), do: {:ok, "fetched:#{key}"}
   end
 end

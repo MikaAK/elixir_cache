@@ -85,6 +85,7 @@ defmodule Cache.ConCache do
   end
 
   @impl Cache
+  @spec put(atom, atom | String.t(), pos_integer | nil, any, Keyword.t()) :: :ok | ErrorMessage.t()
   def put(cache_name, key, _ttl \\ nil, value, _opts \\ [])
 
   def put(cache_name, key, nil, value, opts) do
@@ -106,11 +107,13 @@ defmodule Cache.ConCache do
   end
 
   @impl Cache
+  @spec get(atom, atom | String.t(), Keyword.t()) :: ErrorMessage.t_res(any)
   def get(cache_name, key, _opts \\ []) do
     {:ok, ConCache.get(cache_name, key)}
   end
 
   @impl Cache
+  @spec delete(atom, atom | String.t(), Keyword.t()) :: :ok | ErrorMessage.t()
   def delete(cache_name, key, _opts \\ []) do
     ConCache.delete(cache_name, key)
   end

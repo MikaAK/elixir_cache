@@ -93,9 +93,17 @@ defmodule Cache do
         def cache_name, do: @cache_name
         def cache_adapter, do: @cache_adapter
 
-        def adapter_options do
-          opts = adapter_options!(@adapter_opts)
-          if is_list(opts), do: Keyword.put_new(opts, :__cache_module__, __MODULE__), else: opts
+        if is_list(@adapter_opts) do
+          def adapter_options do
+            @adapter_opts
+            |> adapter_options!()
+            |> Keyword.put_new(:__cache_module__, __MODULE__)
+          end
+        else
+          def adapter_options do
+            opts = adapter_options!(@adapter_opts)
+            if is_list(opts), do: Keyword.put_new(opts, :__cache_module__, __MODULE__), else: opts
+          end
         end
 
         if match?({_, _, _}, @adapter_opts) do
