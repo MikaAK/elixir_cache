@@ -14,7 +14,7 @@ defmodule CacheTest do
   @adapters Enum.map(@adapter_configs, fn {adapter, config} ->
     suffix = Keyword.get(config, :name_suffix, adapter |> Module.split() |> List.last())
     module_name = Module.concat(CacheTest.TestCache, suffix)
-    cache_name = :"test_cache_#{suffix |> Macro.underscore()}"
+    cache_name = :"test_cache_#{Macro.underscore(suffix)}"
     opts = Keyword.get(config, :opts, [])
 
     module_contents = quote do

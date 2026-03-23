@@ -1,4 +1,4 @@
-if System.get_env("IS_CI") == "true" do
+if System.get_env("IS_CI") === "true" do
   defmodule TestCache.Redis do
     use Cache,
       adapter: Cache.Redis,
