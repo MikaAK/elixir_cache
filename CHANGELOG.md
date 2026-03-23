@@ -1,3 +1,21 @@
+# 0.4.4
+
+## Bug Fixes
+
+- refactor(counter): restrict `get/2` to integer keys only and add bounds checking
+
+# 0.4.3
+
+## Features
+
+- feat(counter): add direct integer key indexing for deterministic slot access
+
+# 0.4.2
+
+## Refactors
+
+- refactor(counter): replace dynamic index map with deterministic hash-based indexing
+
 # 0.4.1
 
 ## New Adapters
