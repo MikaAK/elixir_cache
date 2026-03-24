@@ -141,7 +141,7 @@ defmodule Cache.Counter do
 
   @impl Cache
   @spec put(atom, atom | String.t() | non_neg_integer, pos_integer | nil, 1 | -1, Keyword.t()) ::
-          :ok | ErrorMessage.t()
+          ErrorMessage.t_ok_res()
   def put(cache_name, key, ttl \\ nil, value, opts \\ [])
 
   def put(cache_name, key, _ttl, value, _opts) when value in [1, -1] do
@@ -161,7 +161,7 @@ defmodule Cache.Counter do
   end
 
   @impl Cache
-  @spec delete(atom, atom | String.t() | non_neg_integer, Keyword.t()) :: :ok | ErrorMessage.t()
+  @spec delete(atom, atom | String.t() | non_neg_integer, Keyword.t()) :: ErrorMessage.t_ok_res()
   def delete(cache_name, key, _opts \\ []) do
     ref = get_ref(cache_name)
     :counters.put(ref, compute_index(ref, key), 0)
@@ -171,7 +171,7 @@ defmodule Cache.Counter do
       {:error, ErrorMessage.internal_server_error(Exception.message(exception), %{cache: cache_name, key: key})}
   end
 
-  @spec increment(atom, atom | String.t() | non_neg_integer, pos_integer) :: :ok | ErrorMessage.t()
+  @spec increment(atom, atom | String.t() | non_neg_integer, pos_integer) :: ErrorMessage.t_ok_res()
   def increment(cache_name, key, step \\ 1) do
     ref = get_ref(cache_name)
     :counters.add(ref, compute_index(ref, key), step)
@@ -181,7 +181,7 @@ defmodule Cache.Counter do
       {:error, ErrorMessage.internal_server_error(Exception.message(exception), %{cache: cache_name, key: key})}
   end
 
-  @spec decrement(atom, atom | String.t() | non_neg_integer, pos_integer) :: :ok | ErrorMessage.t()
+  @spec decrement(atom, atom | String.t() | non_neg_integer, pos_integer) :: ErrorMessage.t_ok_res()
   def decrement(cache_name, key, step \\ 1) do
     ref = get_ref(cache_name)
     :counters.add(ref, compute_index(ref, key), -step)

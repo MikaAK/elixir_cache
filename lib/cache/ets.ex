@@ -713,7 +713,7 @@ defmodule Cache.ETS do
   end
 
   @impl Cache
-  @spec put(atom, atom | String.t(), pos_integer | nil, any, Keyword.t()) :: :ok | ErrorMessage.t()
+  @spec put(atom, atom | String.t(), pos_integer | nil, any, Keyword.t()) :: ErrorMessage.t_ok_res()
   def put(cache_name, key, _ttl \\ nil, value, _opts \\ []) do
     :ets.insert(cache_name, {key, value})
 
@@ -723,7 +723,7 @@ defmodule Cache.ETS do
   end
 
   @impl Cache
-  @spec delete(atom, atom | String.t(), Keyword.t()) :: :ok | ErrorMessage.t()
+  @spec delete(atom, atom | String.t(), Keyword.t()) :: ErrorMessage.t_ok_res()
   def delete(cache_name, key, _opts \\ []) do
     :ets.delete(cache_name, key)
 

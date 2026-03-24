@@ -85,7 +85,7 @@ defmodule Cache.ConCache do
   end
 
   @impl Cache
-  @spec put(atom, atom | String.t(), pos_integer | nil, any, Keyword.t()) :: :ok | ErrorMessage.t()
+  @spec put(atom, atom | String.t(), pos_integer | nil, any, Keyword.t()) :: ErrorMessage.t_ok_res()
   def put(cache_name, key, _ttl \\ nil, value, _opts \\ [])
 
   def put(cache_name, key, nil, value, opts) do
@@ -94,6 +94,9 @@ defmodule Cache.ConCache do
     else
       ConCache.put(cache_name, key, value)
     end
+  rescue
+    exception ->
+      {:error, ErrorMessage.internal_server_error(Exception.message(exception), %{cache: cache_name, key: key})}
   end
 
   def put(cache_name, key, ttl, value, opts) do
@@ -104,6 +107,9 @@ defmodule Cache.ConCache do
     else
       ConCache.put(cache_name, key, item)
     end
+  rescue
+    exception ->
+      {:error, ErrorMessage.internal_server_error(Exception.message(exception), %{cache: cache_name, key: key})}
   end
 
   @impl Cache
@@ -113,9 +119,12 @@ defmodule Cache.ConCache do
   end
 
   @impl Cache
-  @spec delete(atom, atom | String.t(), Keyword.t()) :: :ok | ErrorMessage.t()
+  @spec delete(atom, atom | String.t(), Keyword.t()) :: ErrorMessage.t_ok_res()
   def delete(cache_name, key, _opts \\ []) do
     ConCache.delete(cache_name, key)
+  rescue
+    exception ->
+      {:error, ErrorMessage.internal_server_error(Exception.message(exception), %{cache: cache_name, key: key})}
   end
 
   @doc """

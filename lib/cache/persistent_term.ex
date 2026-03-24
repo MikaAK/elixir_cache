@@ -53,7 +53,7 @@ defmodule Cache.PersistentTerm do
   end
 
   @impl Cache
-  @spec put(atom, atom | String.t(), pos_integer | nil, any, Keyword.t()) :: :ok | ErrorMessage.t()
+  @spec put(atom, atom | String.t(), pos_integer | nil, any, Keyword.t()) :: ErrorMessage.t_ok_res()
   def put(cache_name, key, _ttl \\ nil, value, _opts \\ []) do
     :persistent_term.put({cache_name, key}, value)
     :ok
@@ -63,7 +63,7 @@ defmodule Cache.PersistentTerm do
   end
 
   @impl Cache
-  @spec delete(atom, atom | String.t(), Keyword.t()) :: :ok | ErrorMessage.t()
+  @spec delete(atom, atom | String.t(), Keyword.t()) :: ErrorMessage.t_ok_res()
   def delete(cache_name, key, _opts \\ []) do
     :persistent_term.erase({cache_name, key})
     :ok

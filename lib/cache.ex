@@ -16,22 +16,22 @@ defmodule Cache do
               | :ignore
 
   @callback put(cache_name :: atom, key :: atom | String.t(), ttl :: pos_integer, value :: any) ::
-              :ok | ErrorMessage.t()
+              ErrorMessage.t_ok_res()
   @callback put(
               cache_name :: atom,
               key :: atom | String.t(),
               ttl :: pos_integer,
               value :: any,
               Keyword.t()
-            ) :: :ok | ErrorMessage.t()
+            ) :: ErrorMessage.t_ok_res()
 
   @callback get(cache_name :: atom, key :: atom | String.t()) :: ErrorMessage.t_res(any)
   @callback get(cache_name :: atom, key :: atom | String.t(), Keyword.t()) ::
               ErrorMessage.t_res(any)
 
   @callback delete(cache_name :: atom, key :: atom | String.t(), opts :: Keyword.t()) ::
-              :ok | ErrorMessage.t()
-  @callback delete(cache_name :: atom, key :: atom | String.t()) :: :ok | ErrorMessage.t()
+              ErrorMessage.t_ok_res()
+  @callback delete(cache_name :: atom, key :: atom | String.t()) :: ErrorMessage.t_ok_res()
 
   defmacro __using__(opts) do
     strategy? = is_tuple(Macro.expand(opts[:adapter], __CALLER__))
