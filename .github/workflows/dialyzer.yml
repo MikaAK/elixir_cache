@@ -26,8 +26,8 @@ jobs:
                 _build
                 deps
                 dialyzer
-          key: ${{ runner.os }}-dialyzer-v1-${{ hashFiles('./mix.lock') }}-${{ hashFiles('./.tool-versions') }}
-          restore-keys: ${{ runner.os }}-dialyzer-v1-
+          key: ${{ runner.os }}-dialyzer-v2-${{ hashFiles('./mix.lock') }}-${{ hashFiles('./.tool-versions') }}
+          restore-keys: ${{ runner.os }}-dialyzer-v2-
 
       - name: Install Dependencies
         run: mix deps.get
