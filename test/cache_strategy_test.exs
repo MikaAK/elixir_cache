@@ -213,6 +213,14 @@ defmodule CacheStrategyTest do
       refute Cache.Strategy.strategy?(Cache.Agent)
       refute Cache.Strategy.strategy?(Cache.Redis)
     end
+
+    test "returns false for non-existent module" do
+      refute Cache.Strategy.strategy?(NonExistentModule)
+    end
+
+    test "returns false for non-module term" do
+      refute Cache.Strategy.strategy?(:not_a_real_module_at_all)
+    end
   end
 
   describe "Cache.MultiLayer layered read behaviour" do

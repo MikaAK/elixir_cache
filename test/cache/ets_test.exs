@@ -188,6 +188,408 @@ defmodule Cache.ETSTest do
     end
   end
 
+  describe "all/0" do
+    test "returns a list of ETS tables including the test table" do
+      tables = TestETSCache.all()
+      assert is_list(tables)
+      assert :test_ets_cache in tables
+    end
+  end
+
+  describe "delete_all_objects/0" do
+    test "removes all objects from the table" do
+      TestETSCache.insert_raw({:a, 1})
+      TestETSCache.insert_raw({:b, 2})
+      TestETSCache.delete_all_objects()
+      assert TestETSCache.tab2list() === []
+    end
+  end
+
+  describe "delete_object/1" do
+    test "deletes exact object from the table" do
+      TestETSCache.insert_raw({:obj_key, "obj_val"})
+      TestETSCache.delete_object({:obj_key, "obj_val"})
+      refute TestETSCache.member(:obj_key)
+    end
+  end
+
+  describe "delete_table/0 and recreation" do
+    defmodule DeleteTableCache do
+      use Cache,
+        adapter: Cache.ETS,
+        name: :delete_table_test_cache,
+        opts: []
+    end
+
+    test "deletes the entire table" do
+      start_supervised!(%{
+        id: :delete_table_sup,
+        type: :supervisor,
+        start: {Cache, :start_link, [[DeleteTableCache], [name: :delete_table_sup]]}
+      })
+
+      Process.sleep(100)
+      DeleteTableCache.insert_raw({:key, "val"})
+      assert DeleteTableCache.delete_table() === true
+    end
+  end
+
+  describe "first/0 and last/0" do
+    test "returns first and last keys" do
+      TestETSCache.delete_all_objects()
+      TestETSCache.insert_raw({:alpha, 1})
+      TestETSCache.insert_raw({:beta, 2})
+
+      first = TestETSCache.first()
+      last = TestETSCache.last()
+      refute first === :"$end_of_table"
+      refute last === :"$end_of_table"
+    end
+
+    test "returns $end_of_table for empty table" do
+      TestETSCache.delete_all_objects()
+      assert TestETSCache.first() === :"$end_of_table"
+      assert TestETSCache.last() === :"$end_of_table"
+    end
+  end
+
+  describe "next/1 and prev/1" do
+    test "navigates between keys" do
+      TestETSCache.delete_all_objects()
+      TestETSCache.insert_raw({:k1, 1})
+      TestETSCache.insert_raw({:k2, 2})
+
+      first_key = TestETSCache.first()
+      next_key = TestETSCache.next(first_key)
+      refute next_key === :"$end_of_table"
+    end
+  end
+
+  describe "foldl/2 and foldr/2" do
+    test "folds over all objects" do
+      TestETSCache.delete_all_objects()
+      TestETSCache.insert_raw({:x, 1})
+      TestETSCache.insert_raw({:y, 2})
+
+      sum = TestETSCache.foldl(fn {_key, val}, acc -> acc + val end, 0)
+      assert sum === 3
+
+      sum_r = TestETSCache.foldr(fn {_key, val}, acc -> acc + val end, 0)
+      assert sum_r === 3
+    end
+  end
+
+  describe "info/0 and info/1" do
+    test "returns full and specific info" do
+      info = TestETSCache.info()
+      assert Keyword.get(info, :name) === :test_ets_cache
+      assert TestETSCache.info(:size) >= 0
+    end
+  end
+
+  describe "insert_new/1" do
+    test "inserts only when key does not exist" do
+      TestETSCache.delete_all_objects()
+      assert TestETSCache.insert_new({:unique, "first"}) === true
+      assert TestETSCache.insert_new({:unique, "second"}) === false
+      assert TestETSCache.lookup(:unique) === [{:unique, "first"}]
+    end
+  end
+
+  describe "lookup/1 and lookup_element/2" do
+    test "looks up objects and elements" do
+      TestETSCache.insert_raw({:lk_key, "lk_val"})
+      assert TestETSCache.lookup(:lk_key) === [{:lk_key, "lk_val"}]
+      assert TestETSCache.lookup_element(:lk_key, 2) === "lk_val"
+    end
+  end
+
+  describe "match_pattern/1 and match_pattern/2" do
+    test "matches with pattern" do
+      TestETSCache.delete_all_objects()
+      TestETSCache.insert_raw({:mp1, "a"})
+      TestETSCache.insert_raw({:mp2, "b"})
+
+      result = TestETSCache.match_pattern({:"$1", :_})
+      assert length(result) === 2
+
+      {matches, _cont} = TestETSCache.match_pattern({:"$1", :_}, 1)
+      assert length(matches) === 1
+    end
+  end
+
+  describe "match_object/1 with continuation" do
+    test "continues match_object with limit" do
+      TestETSCache.delete_all_objects()
+      TestETSCache.insert_raw({:mo1, "a"})
+      TestETSCache.insert_raw({:mo2, "b"})
+      TestETSCache.insert_raw({:mo3, "c"})
+
+      {first_batch, continuation} = TestETSCache.match_object({:_, :_}, 2)
+      assert length(first_batch) === 2
+      refute continuation === :"$end_of_table"
+    end
+  end
+
+  describe "match_spec_compile/1 and match_spec_run/2" do
+    test "compiles and runs match spec" do
+      spec = [{{:_, :"$1"}, [], [:"$1"]}]
+      compiled = TestETSCache.match_spec_compile(spec)
+      assert TestETSCache.is_compiled_ms(compiled) === true
+
+      result = TestETSCache.match_spec_run([{:k, "v"}], compiled)
+      assert result === ["v"]
+    end
+  end
+
+  describe "rename/1" do
+    defmodule RenameTestCache do
+      use Cache,
+        adapter: Cache.ETS,
+        name: :rename_test_cache,
+        opts: []
+    end
+
+    test "renames the table" do
+      start_supervised!(%{
+        id: :rename_test_sup,
+        type: :supervisor,
+        start: {Cache, :start_link, [[RenameTestCache], [name: :rename_test_sup]]}
+      })
+
+      Process.sleep(100)
+      RenameTestCache.insert_raw({:rkey, "rval"})
+      RenameTestCache.rename(:renamed_cache)
+      assert :ets.lookup(:renamed_cache, :rkey) === [{:rkey, "rval"}]
+      :ets.rename(:renamed_cache, :rename_test_cache)
+    end
+  end
+
+  describe "safe_fixtable/1" do
+    test "fixes and unfixes the table" do
+      assert TestETSCache.safe_fixtable(true) === true
+      assert TestETSCache.safe_fixtable(false) === true
+    end
+  end
+
+  describe "select_count/1" do
+    test "counts matching objects" do
+      TestETSCache.delete_all_objects()
+      TestETSCache.insert_raw({:sc1, "a"})
+      TestETSCache.insert_raw({:sc2, "b"})
+
+      count = TestETSCache.select_count([{:_, [], [true]}])
+      assert count === 2
+    end
+  end
+
+  describe "select/2 with limit" do
+    test "selects with limit and continuation" do
+      TestETSCache.delete_all_objects()
+      TestETSCache.insert_raw({:sl1, "a"})
+      TestETSCache.insert_raw({:sl2, "b"})
+
+      {results, _cont} = TestETSCache.select([{:_, [], [:"$_"]}], 1)
+      assert length(results) === 1
+    end
+  end
+
+  describe "select_replace/1" do
+    test "replaces matching objects" do
+      TestETSCache.delete_all_objects()
+      TestETSCache.insert_raw({:sr1, "old"})
+
+      match_spec = [{{:sr1, :_}, [], [{{:sr1, "new"}}]}]
+      count = TestETSCache.select_replace(match_spec)
+      assert count === 1
+      assert TestETSCache.lookup(:sr1) === [{:sr1, "new"}]
+    end
+  end
+
+  describe "select_reverse/1" do
+    test "returns results in reverse" do
+      TestETSCache.delete_all_objects()
+      TestETSCache.insert_raw({:rv1, "a"})
+      TestETSCache.insert_raw({:rv2, "b"})
+
+      result = TestETSCache.select_reverse([{:_, [], [:"$_"]}])
+      assert length(result) === 2
+    end
+  end
+
+  describe "select_reverse/2 with limit" do
+    test "returns results in reverse with limit" do
+      TestETSCache.delete_all_objects()
+      TestETSCache.insert_raw({:rvl1, "a"})
+      TestETSCache.insert_raw({:rvl2, "b"})
+
+      {results, _cont} = TestETSCache.select_reverse([{:_, [], [:"$_"]}], 1)
+      assert length(results) === 1
+    end
+  end
+
+  describe "repair_continuation/2" do
+    test "repairs a continuation" do
+      TestETSCache.delete_all_objects()
+      TestETSCache.insert_raw({:rc1, "a"})
+      TestETSCache.insert_raw({:rc2, "b"})
+
+      match_spec = [{{:_, :_}, [], [:"$_"]}]
+      {_results, continuation} = TestETSCache.select(match_spec, 1)
+      repaired = TestETSCache.repair_continuation(continuation, match_spec)
+      assert is_tuple(repaired)
+    end
+  end
+
+  describe "slot/1" do
+    test "returns objects at slot" do
+      TestETSCache.delete_all_objects()
+      TestETSCache.insert_raw({:slot_key, "slot_val"})
+      result = TestETSCache.slot(0)
+      assert is_list(result)
+    end
+  end
+
+  describe "tab2file/1 and file2tab/1 and tabfile_info/1" do
+    test "dumps and reads table from file" do
+      TestETSCache.delete_all_objects()
+      TestETSCache.insert_raw({:tf_key, "tf_val"})
+      file = ~c"/tmp/test_ets_tab2file_#{:rand.uniform(100_000)}"
+
+      assert :ok = TestETSCache.tab2file(file)
+      assert {:ok, info} = TestETSCache.tabfile_info(file)
+      assert is_list(info)
+
+      File.rm(to_string(file))
+    end
+  end
+
+  describe "tab2file/2 with options" do
+    test "dumps table with extended_info" do
+      TestETSCache.delete_all_objects()
+      TestETSCache.insert_raw({:tf2_key, "val"})
+      file = ~c"/tmp/test_ets_tab2file2_#{:rand.uniform(100_000)}"
+
+      assert :ok = TestETSCache.tab2file(file, extended_info: [:md5sum])
+      assert {:ok, info} = TestETSCache.tabfile_info(file)
+      assert is_list(info)
+
+      File.rm(to_string(file))
+    end
+  end
+
+  describe "file2tab/2 with options" do
+    defmodule File2TabTestCache do
+      use Cache,
+        adapter: Cache.ETS,
+        name: :file2tab_test_cache,
+        opts: []
+    end
+
+    test "reads table with verify option" do
+      start_supervised!(%{
+        id: :file2tab_sup,
+        type: :supervisor,
+        start: {Cache, :start_link, [[File2TabTestCache], [name: :file2tab_sup]]}
+      })
+
+      Process.sleep(100)
+      File2TabTestCache.insert_raw({:fb_key, "val"})
+      file = ~c"/tmp/test_ets_file2tab_#{:rand.uniform(100_000)}"
+
+      File2TabTestCache.tab2file(file, extended_info: [:md5sum])
+      :ets.delete(:file2tab_test_cache)
+
+      assert {:ok, _} = File2TabTestCache.file2tab(file, [verify: true])
+
+      File.rm(to_string(file))
+    end
+  end
+
+  describe "tab2list/0" do
+    test "returns all objects as a list" do
+      TestETSCache.delete_all_objects()
+      TestETSCache.insert_raw({:tl1, "a"})
+      TestETSCache.insert_raw({:tl2, "b"})
+
+      list = TestETSCache.tab2list()
+      assert length(list) === 2
+    end
+  end
+
+  describe "table/0" do
+    test "returns a QLC query handle" do
+      handle = TestETSCache.table()
+      assert is_reference(handle) or is_tuple(handle)
+    end
+  end
+
+  describe "table/1 with options" do
+    test "returns a QLC query handle with traverse option" do
+      handle = TestETSCache.table(traverse: :first_next)
+      assert is_reference(handle) or is_tuple(handle)
+    end
+  end
+
+  describe "take/1" do
+    test "returns and removes object" do
+      TestETSCache.insert_raw({:take_key, "take_val"})
+      result = TestETSCache.take(:take_key)
+      assert result === [{:take_key, "take_val"}]
+      refute TestETSCache.member(:take_key)
+    end
+  end
+
+  describe "test_ms/2" do
+    test "tests match spec against a tuple" do
+      spec = [{{:"$1", :"$2"}, [], [:"$2"]}]
+      result = TestETSCache.test_ms({:key, "value"}, spec)
+      assert result === {:ok, "value"}
+    end
+  end
+
+  describe "update_counter/3 with default" do
+    test "creates counter with default if key doesn't exist" do
+      result = TestETSCache.update_counter(:new_counter, 1, {:new_counter, 0})
+      assert result === 1
+    end
+  end
+
+  describe "update_element/2" do
+    test "updates specific element of an object" do
+      TestETSCache.insert_raw({:ue_key, "old_val"})
+      assert TestETSCache.update_element(:ue_key, {2, "new_val"}) === true
+      assert TestETSCache.lookup(:ue_key) === [{:ue_key, "new_val"}]
+    end
+  end
+
+  describe "whereis/0" do
+    test "returns the tid of the named table" do
+      tid = TestETSCache.whereis()
+      assert is_reference(tid)
+    end
+  end
+
+
+
+  describe "opts_definition/1" do
+    test "validates valid opts" do
+      assert {:ok, _} = Cache.ETS.opts_definition(type: :set)
+    end
+
+    test "rejects invalid opts" do
+      assert {:error, _} = Cache.ETS.opts_definition(type: :invalid)
+    end
+
+    test "rejects non-keyword list" do
+      assert {:error, "expected a keyword list"} = Cache.ETS.opts_definition([1, 2, 3])
+    end
+
+    test "rejects non-list" do
+      assert {:error, "expected a keyword list"} = Cache.ETS.opts_definition("not a list")
+    end
+  end
+
   if function_exported?(:dets, :to_ets, 1) do
     describe "to_dets/2 and from_dets/2" do
       test "converts between ETS and DETS tables" do

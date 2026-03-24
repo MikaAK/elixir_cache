@@ -80,4 +80,42 @@ defmodule Cache.ConCacheTest do
       assert "test_value" === ConCacheAdapter.dirty_get_or_store(key, fn -> raise "not used" end)
     end
   end
+
+  describe "put with TTL" do
+    test "stores value with TTL via dirty put", %{key: key} do
+      assert :ok === ConCacheAdapter.put(key, :timer.seconds(5), "ttl_value")
+      assert {:ok, "ttl_value"} === ConCacheAdapter.get(key)
+    end
+  end
+
+  defmodule NonDirtyConCacheAdapter do
+    use Cache,
+      adapter: Cache.ConCache,
+      name: :test_non_dirty_con_cache,
+      opts: [dirty?: false]
+  end
+
+  describe "non-dirty mode" do
+    setup do
+      start_supervised!(%{
+        id: :non_dirty_con_cache_sup,
+        type: :supervisor,
+        start: {Cache, :start_link, [[NonDirtyConCacheAdapter], [name: :non_dirty_con_cache_sup]]}
+      })
+
+      :ok
+    end
+
+    test "put without TTL uses ConCache.put" do
+      key = Faker.UUID.v4()
+      assert :ok === NonDirtyConCacheAdapter.put(key, "clean_value")
+      assert {:ok, "clean_value"} === NonDirtyConCacheAdapter.get(key)
+    end
+
+    test "put with TTL uses ConCache.put with Item" do
+      key = Faker.UUID.v4()
+      assert :ok === NonDirtyConCacheAdapter.put(key, :timer.seconds(5), "ttl_clean")
+      assert {:ok, "ttl_clean"} === NonDirtyConCacheAdapter.get(key)
+    end
+  end
 end

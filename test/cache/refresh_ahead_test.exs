@@ -165,6 +165,88 @@ defmodule Cache.RefreshAheadTest do
     end
   end
 
+  describe "MFA-style on_refresh callback" do
+    defmodule MFARefreshHelper do
+      def refresh(key), do: {:ok, "mfa:#{key}"}
+    end
+
+    defmodule MFARefreshCache do
+      use Cache,
+        adapter: {Cache.RefreshAhead, Cache.ETS},
+        name: :mfa_refresh_cache,
+        opts: [
+          refresh_before: 500,
+          on_refresh: {Cache.RefreshAheadTest.MFARefreshHelper, :refresh, []}
+        ]
+    end
+
+    setup do
+      start_supervised!(%{
+        id: :mfa_refresh_cache_sup,
+        type: :supervisor,
+        start: {Cache, :start_link, [[MFARefreshCache], [name: :mfa_refresh_cache_sup]]}
+      })
+
+      :ok
+    end
+
+    test "uses MFA tuple for refresh callback" do
+      assert :ok === MFARefreshCache.put("mfa_key", 2000, "original")
+      assert {:ok, "original"} === MFARefreshCache.get("mfa_key")
+
+      Process.sleep(1600)
+
+      assert {:ok, "original"} === MFARefreshCache.get("mfa_key")
+
+      Process.sleep(200)
+
+      assert {:ok, "mfa:mfa_key"} === MFARefreshCache.get("mfa_key")
+    end
+  end
+
+  describe "put without TTL" do
+    test "stores value without refresh wrapper when TTL is nil" do
+      assert :ok === TestRefreshCache.put("no_ttl_key", "value")
+      assert {:ok, "value"} === TestRefreshCache.get("no_ttl_key")
+    end
+  end
+
+  describe "lock_node_whitelist with atom" do
+    defmodule AtomWhitelistCache do
+      use Cache,
+        adapter: {Cache.RefreshAhead, Cache.ETS},
+        name: :atom_whitelist_cache,
+        opts: [
+          refresh_before: 500,
+          lock_node_whitelist: :nonode@nohost
+        ]
+
+      def refresh(key), do: {:ok, "atom_wl:#{key}"}
+    end
+
+    setup do
+      start_supervised!(%{
+        id: :atom_whitelist_cache_sup,
+        type: :supervisor,
+        start: {Cache, :start_link, [[AtomWhitelistCache], [name: :atom_whitelist_cache_sup]]}
+      })
+
+      :ok
+    end
+
+    test "works with atom whitelist" do
+      assert :ok === AtomWhitelistCache.put("awl_key", 2000, "original")
+
+      Process.sleep(1600)
+
+      assert {:ok, "original"} === AtomWhitelistCache.get("awl_key")
+
+      Process.sleep(200)
+
+      assert {:ok, "atom_wl:awl_key"} === AtomWhitelistCache.get("awl_key")
+    end
+  end
+
   describe "cache_adapter/0" do
     test "returns Cache.RefreshAhead as adapter" do
       assert TestRefreshCache.cache_adapter() === Cache.RefreshAhead

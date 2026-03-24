@@ -130,4 +130,48 @@ defmodule Cache.CounterTest do
       assert {:ok, 100} === TestCounterCache.get(13)
     end
   end
+
+  describe "atom and string keys" do
+    test "increment and decrement with atom key" do
+      assert :ok === TestCounterCache.increment(:page_views)
+      assert :ok === TestCounterCache.increment(:page_views)
+      assert :ok === TestCounterCache.decrement(:page_views)
+    end
+
+    test "put with atom key" do
+      assert :ok === TestCounterCache.put(:atom_counter, 1)
+      assert :ok === TestCounterCache.put(:atom_counter, -1)
+    end
+
+    test "delete with atom key zeroes the slot" do
+      TestCounterCache.increment(:delete_atom, 5)
+      assert :ok === TestCounterCache.delete(:delete_atom)
+    end
+
+    test "increment and decrement with string key" do
+      assert :ok === TestCounterCache.increment("string_counter")
+      assert :ok === TestCounterCache.increment("string_counter", 3)
+      assert :ok === TestCounterCache.decrement("string_counter")
+    end
+
+    test "put with string key" do
+      assert :ok === TestCounterCache.put("str_put_key", 1)
+    end
+
+    test "delete with string key" do
+      TestCounterCache.increment("str_delete_key", 5)
+      assert :ok === TestCounterCache.delete("str_delete_key")
+    end
+  end
+
+  describe "get with non-integer key" do
+    test "returns error for atom key" do
+      assert {:error, %ErrorMessage{code: :bad_request}} = TestCounterCache.get(:some_atom)
+    end
+
+    test "returns error for string key" do
+      assert {:error, %ErrorMessage{code: :bad_request}} = TestCounterCache.get("some_string")
+    end
+  end
+
 end
