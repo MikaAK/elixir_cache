@@ -84,6 +84,11 @@ defmodule Cache.Redis do
       end
 
       def hash_get_many(key_fields) do
+        key_fields =
+          Enum.map(key_fields, fn {key, fields} ->
+            {maybe_sandbox_key(key), fields}
+          end)
+
         @cache_adapter.hash_get_many(@cache_name, key_fields, adapter_options())
       end
 
