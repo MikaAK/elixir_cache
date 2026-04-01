@@ -34,7 +34,15 @@ defmodule Cache do
   @callback delete(cache_name :: atom, key :: atom | String.t()) :: ErrorMessage.t_ok_res()
 
   defmacro __using__(opts) do
-    strategy? = is_tuple(Macro.expand(opts[:adapter], __CALLER__))
+    sandbox_opt = Keyword.get(opts, :sandbox?, false)
+
+    sandbox? =
+      case sandbox_opt do
+        val when is_boolean(val) -> val
+        expr -> expr |> Code.eval_quoted([], __CALLER__) |> elem(0)
+      end
+
+    strategy? = is_tuple(Macro.expand(opts[:adapter], __CALLER__)) and not sandbox?
 
     if strategy? do
       quote do
@@ -212,6 +220,17 @@ defmodule Cache do
         defp maybe_sandbox_key(key), do: key
       end
     else
+      adapter_expanded = Macro.expand(opts[:adapter], __CALLER__)
+
+      adapter_use_ast =
+        if is_atom(adapter_expanded) do
+          quote do
+            if macro_exported?(unquote(adapter_expanded), :__using__, 1) do
+              use unquote(adapter_expanded)
+            end
+          end
+        end
+
       quote do
         opts = unquote(opts)
 
@@ -269,9 +288,7 @@ defmodule Cache do
         @adapter_opts adapter_opts
         @compression_level if is_list(@adapter_opts), do: @adapter_opts[:compression_level]
 
-        if macro_exported?(unquote(opts[:adapter]), :__using__, 1) do
-          use unquote(opts[:adapter])
-        end
+        unquote(adapter_use_ast)
 
         def cache_name, do: @cache_name
         def cache_adapter, do: @cache_adapter
