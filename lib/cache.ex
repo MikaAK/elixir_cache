@@ -400,25 +400,11 @@ defmodule Cache do
           Cache.get_or_create(__MODULE__, key, fnc)
         end
 
-        if @cache_opts[:sandbox?] do
-          defp maybe_sandbox_key(key) do
-            sandbox_id = Cache.SandboxRegistry.find!(__MODULE__)
-
-            "#{sandbox_id}:#{key}"
-          end
-
-          defp maybe_sandbox_scan_opts(opts) do
-            sandbox_id = Cache.SandboxRegistry.find!(__MODULE__)
-
-            Keyword.put(opts, :sandbox_prefix, "#{sandbox_id}:")
-          end
-        else
-          defp maybe_sandbox_key(key) do
-            key
-          end
-
-          defp maybe_sandbox_scan_opts(opts), do: opts
-        end
+        # In sandbox mode, Cache.Sandbox handles per-caller isolation internally
+        # by scoping state under the current SandboxRegistry sandbox_id. Keys
+        # are not rewritten here, so scan/match operations see only the current
+        # sandbox's data without needing a prefix filter.
+        defp maybe_sandbox_key(key), do: key
       end
     end
   end
