@@ -39,6 +39,28 @@ defmodule CacheSandboxTest do
     test "adapter gets swapped to sandbox adapter" do
       assert TestCache.cache_adapter() === Cache.Sandbox
     end
+
+    test "scan only returns keys from the current sandbox" do
+      assert :ok = TestCache.put("alpha", 1)
+      assert :ok = TestCache.put("beta", 2)
+
+      task =
+        Task.async(fn ->
+          Cache.SandboxRegistry.register_caches(TestCache)
+          :ok = TestCache.put("gamma", 3)
+          TestCache.scan()
+        end)
+
+      assert {:ok, other_keys} = Task.await(task)
+      assert "gamma" in other_keys
+      refute "alpha" in other_keys
+      refute "beta" in other_keys
+
+      assert {:ok, my_keys} = TestCache.scan()
+      assert "alpha" in my_keys
+      assert "beta" in my_keys
+      refute "gamma" in my_keys
+    end
   end
 
   describe "&json_get/1" do
