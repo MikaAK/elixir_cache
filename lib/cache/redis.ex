@@ -63,7 +63,7 @@ defmodule Cache.Redis do
   defmacro __using__(_opts) do
     quote do
       def scan(scan_opts \\ []) do
-        @cache_adapter.scan(@cache_name, maybe_sandbox_scan_opts(scan_opts), adapter_options())
+        @cache_adapter.scan(@cache_name, scan_opts, adapter_options())
       end
 
       def hash_scan(key, scan_opts \\ []) do
