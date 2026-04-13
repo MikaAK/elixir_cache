@@ -406,10 +406,18 @@ defmodule Cache do
 
             "#{sandbox_id}:#{key}"
           end
+
+          defp maybe_sandbox_scan_opts(opts) do
+            sandbox_id = Cache.SandboxRegistry.find!(__MODULE__)
+
+            Keyword.put(opts, :sandbox_prefix, "#{sandbox_id}:")
+          end
         else
           defp maybe_sandbox_key(key) do
             key
           end
+
+          defp maybe_sandbox_scan_opts(opts), do: opts
         end
       end
     end

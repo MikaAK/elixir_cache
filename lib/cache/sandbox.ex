@@ -357,10 +357,12 @@ defmodule Cache.Sandbox do
     match = scan_opts[:match] || "*"
     count = scan_opts[:count]
     type = scan_opts[:type]
+    sandbox_prefix = scan_opts[:sandbox_prefix]
 
     Agent.get(cache_name, fn state ->
       values =
         state
+        |> Stream.filter(fn {key, _value} -> scan_sandbox_match?(key, sandbox_prefix) end)
         |> Stream.filter(fn {_key, value} -> scan_type_match?(value, type) end)
         |> Stream.map(fn {key, _value} -> {key, scan_key(key)} end)
         |> Stream.filter(fn {_key, match_key} -> scan_match?(match_key, match) end)
@@ -370,6 +372,9 @@ defmodule Cache.Sandbox do
       {:ok, values}
     end)
   end
+
+  defp scan_sandbox_match?(_key, nil), do: true
+  defp scan_sandbox_match?(key, prefix), do: String.starts_with?(to_string(key), prefix)
 
   def hash_scan(cache_name, key, scan_opts, _opts) do
     match = scan_opts[:match] || "*"
