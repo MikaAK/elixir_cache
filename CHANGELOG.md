@@ -1,3 +1,16 @@
+# 0.4.7
+
+## Bug Fixes
+
+- fix: apply `maybe_sandbox_key` to `hash_get_many` keys
+- fix: support `sandbox?` option with strategy adapters (`HashRing`, `MultiLayer`, `RefreshAhead`)
+- fix: isolate `Cache.Sandbox` scan results per sandbox
+
+## Refactors
+
+- refactor: scope `Cache.Sandbox` state by `sandbox_id` internally
+- chore(metrics): fix cardinality leak in `extract_error_metadata/1`
+
 # 0.4.6
 # 0.4.5
 - chore: fix dialyzer
