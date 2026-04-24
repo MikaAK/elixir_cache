@@ -801,157 +801,98 @@ defmodule Cache.Sandbox do
 
   defp extract_bindings(_object, _pattern), do: []
 
+  # Match specs are compiled and run via :ets primitives so sandbox semantics
+  # match real ETS (body tuple handling, guard evaluation, malformed-spec errors).
+  # `:ets.match_spec_compile/1` raises `ArgumentError` on invalid specs in the
+  # caller process; `:ets.match_spec_run/2` evaluates guards and body terms with
+  # full ETS semantics against the per-sandbox sub-map. Continuations are not
+  # implemented — `select/3` returns `{results, :end_of_table}` unconditionally,
+  # so callers cannot resume via `select/1`.
   def select(cache_name, match_spec) do
+    compiled = :ets.match_spec_compile(match_spec)
+
     scoped_agent_get(cache_name, fn sub ->
-      sub
-      |> Map.to_list()
-      |> Enum.flat_map(fn {key, value} -> apply_match_spec({key, value}, match_spec) end)
+      sub |> Map.to_list() |> :ets.match_spec_run(compiled)
     end)
   end
 
   def select(cache_name, match_spec, limit) do
+    compiled = :ets.match_spec_compile(match_spec)
+
     scoped_agent_get(cache_name, fn sub ->
       results =
         sub
         |> Map.to_list()
-        |> Enum.flat_map(fn {key, value} -> apply_match_spec({key, value}, match_spec) end)
+        |> :ets.match_spec_run(compiled)
         |> Enum.take(limit)
 
       {results, :end_of_table}
     end)
   end
 
-  defp apply_match_spec(object, match_spec) when is_list(match_spec) do
-    Enum.flat_map(match_spec, fn spec -> apply_single_match_spec(object, spec) end)
-  end
-
-  # NOTE: Guards are not evaluated in the sandbox. Implementing a full guard
-  # interpreter for match specs is non-trivial and unlikely to be needed in
-  # typical test scenarios. If you rely on guards in match specs, consider
-  # testing against the real adapter.
-  defp apply_single_match_spec(object, {pattern, _guards, result_spec}) do
-    if match_pattern?(object, pattern) do
-      bindings = extract_numbered_bindings(object, pattern)
-      [transform_result(object, result_spec, bindings)]
-    else
-      []
-    end
-  end
-
-  defp apply_single_match_spec(_object, _spec), do: []
-
-  defp extract_numbered_bindings(object, pattern)
-       when is_tuple(pattern) and is_tuple(object) do
-    object_list = Tuple.to_list(object)
-    pattern_list = Tuple.to_list(pattern)
-
-    object_list
-    |> Enum.zip(pattern_list)
-    |> Enum.reduce(%{}, fn {obj_elem, pat_elem}, acc ->
-      case parse_binding_number(pat_elem) do
-        nil -> acc
-        n -> Map.put(acc, n, obj_elem)
-      end
-    end)
-  end
-
-  defp extract_numbered_bindings(_object, _pattern), do: %{}
-
-  defp parse_binding_number(atom) when is_atom(atom) do
-    case Atom.to_string(atom) do
-      "$" <> rest ->
-        case Integer.parse(rest) do
-          {n, ""} -> n
-          _ -> nil
-        end
-
-      _ ->
-        nil
-    end
-  end
-
-  defp parse_binding_number(_), do: nil
-
-  defp transform_result(object, [:"$_"], _bindings), do: object
-
-  defp transform_result(_object, [:"$$"], bindings) do
-    bindings
-    |> Enum.sort_by(&elem(&1, 0))
-    |> Enum.map(&elem(&1, 1))
-  end
-
-  defp transform_result(_object, [result], bindings) do
-    resolve_bindings(result, bindings)
-  end
-
-  defp transform_result(_object, result, _bindings), do: result
-
-  defp resolve_bindings(atom, bindings) when is_atom(atom) do
-    case parse_binding_number(atom) do
-      nil -> atom
-      n -> Map.get(bindings, n, atom)
-    end
-  end
-
-  defp resolve_bindings(tuple, bindings) when is_tuple(tuple) do
-    tuple
-    |> Tuple.to_list()
-    |> Enum.map(&resolve_bindings(&1, bindings))
-    |> List.to_tuple()
-  end
-
-  defp resolve_bindings(list, bindings) when is_list(list) do
-    Enum.map(list, &resolve_bindings(&1, bindings))
-  end
-
-  defp resolve_bindings(value, _bindings), do: value
-
   def select_count(cache_name, match_spec) do
+    compiled = :ets.match_spec_compile(match_spec)
+
     scoped_agent_get(cache_name, fn sub ->
       sub
       |> Map.to_list()
-      |> Enum.count(fn {key, value} ->
-        result = apply_match_spec({key, value}, match_spec)
-        result !== [] and hd(result) === true
-      end)
+      |> :ets.match_spec_run(compiled)
+      |> Enum.count(&(&1 === true))
     end)
   end
 
   def select_delete(cache_name, match_spec) do
+    compiled = :ets.match_spec_compile(match_spec)
+
     scoped_agent_get_and_update(cache_name, fn sub ->
       {to_delete, to_keep} =
         sub
         |> Map.to_list()
-        |> Enum.split_with(fn {key, value} ->
-          result = apply_match_spec({key, value}, match_spec)
-          result !== [] and hd(result) === true
+        |> Enum.split_with(fn obj ->
+          [obj] |> :ets.match_spec_run(compiled) |> Enum.any?(&(&1 === true))
         end)
 
       {length(to_delete), Map.new(to_keep)}
     end)
   end
 
+  # select_replace splits the read and update across two Agent calls so the
+  # key-change ArgumentError raises in the caller's process. Raising inside a
+  # scoped_agent_get_and_update callback would crash the Agent and surface as
+  # an {:exit, ...} instead of ArgumentError. Non-atomic read-modify-write is
+  # acceptable for sandbox/test use where there's one caller per sandbox_id.
   def select_replace(cache_name, match_spec) do
-    scoped_agent_get_and_update(cache_name, fn sub ->
-      {count, new_sub} =
-        sub
-        |> Map.to_list()
-        |> Enum.reduce({0, sub}, fn {key, value}, {cnt, acc} ->
-          result = apply_match_spec({key, value}, match_spec)
+    compiled = :ets.match_spec_compile(match_spec)
+    entries = scoped_agent_get(cache_name, &Map.to_list/1)
 
-          case result do
-            [new_obj] when is_tuple(new_obj) ->
-              new_key = elem(new_obj, 0)
-              new_value = if tuple_size(new_obj) === 2, do: elem(new_obj, 1), else: new_obj
-              {cnt + 1, acc |> Map.delete(key) |> Map.put(new_key, new_value)}
+    updates =
+      Enum.flat_map(entries, fn {key, _value} = obj ->
+        case :ets.match_spec_run([obj], compiled) do
+          [new_obj] when is_tuple(new_obj) and tuple_size(new_obj) >= 1 ->
+            new_key = elem(new_obj, 0)
 
-            _ ->
-              {cnt, acc}
-          end
-        end)
+            if new_key !== key do
+              raise ArgumentError,
+                    "select_replace cannot change the key of an object"
+            end
 
-      {count, new_sub}
-    end)
+            new_value =
+              if tuple_size(new_obj) === 2, do: elem(new_obj, 1), else: new_obj
+
+            [{key, new_value}]
+
+          _ ->
+            []
+        end
+      end)
+
+    if updates !== [] do
+      scoped_agent_update(cache_name, fn sub ->
+        Enum.reduce(updates, sub, fn {k, v}, acc -> Map.put(acc, k, v) end)
+      end)
+    end
+
+    length(updates)
   end
 
   def match_delete(cache_name, pattern) do
