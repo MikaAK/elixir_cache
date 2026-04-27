@@ -1,3 +1,14 @@
+# 0.4.8
+
+## Bug Fixes
+
+- fix: ETS/DETS/Counter `start_link` now waits for the table/counter ref to be ready before returning, eliminating a startup race where supervisors saw a started child before the underlying table existed
+- fix(sandbox): match real ETS match-spec semantics via `:ets.match_spec_compile/1` + `:ets.match_spec_run/2` in `select/2,3`, `select_count/2`, `select_delete/2`, and `select_replace/2`
+
+## Chores
+
+- ci: run workflows on `pull_request`; restrict `push` trigger to `main` to avoid duplicate runs
+
 # 0.4.7
 
 ## Bug Fixes
