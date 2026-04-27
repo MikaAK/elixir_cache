@@ -97,15 +97,25 @@ defmodule Cache.Counter do
 
   @impl Cache
   def start_link(opts) do
-    Task.start_link(fn ->
-      cache_name = opts[:table_name]
-      initial_size = opts[:initial_size] || 1
-      counters_opts = if opts[:write_concurrency], do: [:atomics, :write_concurrency], else: [:atomics]
-      ref = :counters.new(initial_size, counters_opts)
-      :persistent_term.put({cache_name, @ref_key}, ref)
-      :persistent_term.put({cache_name, @size_key}, initial_size)
-      Process.hibernate(Function, :identity, [nil])
-    end)
+    parent = self()
+    ready_ref = make_ref()
+
+    {:ok, pid} =
+      Task.start_link(fn ->
+        cache_name = opts[:table_name]
+        initial_size = opts[:initial_size] || 1
+        counters_opts = if opts[:write_concurrency], do: [:atomics, :write_concurrency], else: [:atomics]
+        ref = :counters.new(initial_size, counters_opts)
+        :persistent_term.put({cache_name, @ref_key}, ref)
+        :persistent_term.put({cache_name, @size_key}, initial_size)
+        send(parent, {ready_ref, :ready})
+        Process.hibernate(Function, :identity, [nil])
+      end)
+
+    receive do
+      {^ready_ref, :ready} -> {:ok, pid}
+      {:EXIT, ^pid, reason} -> {:error, reason}
+    end
   end
 
   @impl Cache

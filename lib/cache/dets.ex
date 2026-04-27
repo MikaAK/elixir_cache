@@ -365,25 +365,35 @@ defmodule Cache.DETS do
 
   @impl Cache
   def start_link(opts) do
-    Task.start_link(fn ->
-      table_name = opts[:table_name]
+    parent = self()
+    ref = make_ref()
 
-      file_path =
-        opts[:file_path]
-        |> to_string
-        |> create_file_name(table_name)
-        |> tap(&File.mkdir_p!(Path.dirname(&1)))
-        |> String.to_charlist()
+    {:ok, pid} =
+      Task.start_link(fn ->
+        table_name = opts[:table_name]
 
-      opts =
-        opts
-        |> Keyword.drop([:table_name, :file_path])
-        |> Kernel.++(access: :read_write, file: file_path)
+        file_path =
+          opts[:file_path]
+          |> to_string
+          |> create_file_name(table_name)
+          |> tap(&File.mkdir_p!(Path.dirname(&1)))
+          |> String.to_charlist()
 
-      {:ok, _} = :dets.open_file(table_name, opts)
+        opts =
+          opts
+          |> Keyword.drop([:table_name, :file_path])
+          |> Kernel.++(access: :read_write, file: file_path)
 
-      Process.hibernate(Function, :identity, [nil])
-    end)
+        {:ok, _} = :dets.open_file(table_name, opts)
+
+        send(parent, {ref, :ready})
+        Process.hibernate(Function, :identity, [nil])
+      end)
+
+    receive do
+      {^ref, :ready} -> {:ok, pid}
+      {:EXIT, ^pid, reason} -> {:error, reason}
+    end
   end
 
   defp create_file_name(file_path, table_name) do
