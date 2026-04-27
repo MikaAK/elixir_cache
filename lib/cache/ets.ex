@@ -617,30 +617,40 @@ defmodule Cache.ETS do
 
   @impl Cache
   def start_link(opts) do
-    Task.start_link(fn ->
-      table_name = opts[:table_name]
-      rehydration_path = opts[:rehydration_path]
+    parent = self()
+    ref = make_ref()
 
-      ets_opts =
-        opts
-        |> Keyword.drop([:table_name, :type, :rehydration_path])
-        |> Kernel.++([opts[:type], :public, :named_table])
+    {:ok, pid} =
+      Task.start_link(fn ->
+        table_name = opts[:table_name]
+        rehydration_path = opts[:rehydration_path]
 
-      ets_opts =
-        if opts[:compressed] do
-          Keyword.delete(ets_opts, :compressed) ++ [:compressed]
-        else
-          ets_opts
+        ets_opts =
+          opts
+          |> Keyword.drop([:table_name, :type, :rehydration_path])
+          |> Kernel.++([opts[:type], :public, :named_table])
+
+        ets_opts =
+          if opts[:compressed] do
+            Keyword.delete(ets_opts, :compressed) ++ [:compressed]
+          else
+            ets_opts
+          end
+
+        rehydrate_or_create_table(table_name, rehydration_path, ets_opts)
+
+        if rehydration_path do
+          setup_exit_signal_handlers(table_name, rehydration_path)
         end
 
-      rehydrate_or_create_table(table_name, rehydration_path, ets_opts)
+        send(parent, {ref, :ready})
+        Process.hibernate(Function, :identity, [nil])
+      end)
 
-      if rehydration_path do
-        setup_exit_signal_handlers(table_name, rehydration_path)
-      end
-
-      Process.hibernate(Function, :identity, [nil])
-    end)
+    receive do
+      {^ref, :ready} -> {:ok, pid}
+      {:EXIT, ^pid, reason} -> {:error, reason}
+    end
   end
 
   defp rehydrate_or_create_table(table_name, rehydration_path, ets_opts)
