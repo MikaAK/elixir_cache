@@ -5,7 +5,7 @@ defmodule Cache.SandboxRegistry do
   More details soon...
   """
 
-  @sleep_for_sync 50
+  @sleep_for_sync Application.compile_env(:elixir_cache, :sandbox_sleep_ms, 50)
   @registry :elixir_cache_sandbox
   @keys :duplicate
 

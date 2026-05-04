@@ -1,3 +1,9 @@
+# 0.4.9
+
+## Performance
+
+- perf(sandbox): make `Cache.SandboxRegistry.register_caches/2` post-register sleep configurable via `Application.compile_env(:elixir_cache, :sandbox_sleep_ms, 50)`. Default is unchanged (50 ms). Test suites that don't need the sleep can set it to 0 to save ~50 ms per cache registered per test — material on apps with many cache modules.
+
 # 0.4.8
 
 ## Bug Fixes
