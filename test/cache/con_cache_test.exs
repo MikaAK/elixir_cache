@@ -48,7 +48,7 @@ defmodule Cache.ConCacheTest do
   @ttl :timer.seconds(5)
 
   setup do
-    key = Faker.UUID.v4()
+    key = Cache.Gen.key()
 
     start_supervised!({Cache, [ConCacheAdapter]})
 
@@ -107,13 +107,13 @@ defmodule Cache.ConCacheTest do
     end
 
     test "put without TTL uses ConCache.put" do
-      key = Faker.UUID.v4()
+      key = Cache.Gen.key()
       assert :ok === NonDirtyConCacheAdapter.put(key, "clean_value")
       assert {:ok, "clean_value"} === NonDirtyConCacheAdapter.get(key)
     end
 
     test "put with TTL uses ConCache.put with Item" do
-      key = Faker.UUID.v4()
+      key = Cache.Gen.key()
       assert :ok === NonDirtyConCacheAdapter.put(key, :timer.seconds(5), "ttl_clean")
       assert {:ok, "ttl_clean"} === NonDirtyConCacheAdapter.get(key)
     end

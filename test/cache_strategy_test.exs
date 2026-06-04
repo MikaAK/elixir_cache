@@ -80,8 +80,8 @@ defmodule CacheStrategyTest do
       end
 
       test "puts into the cache and can get it back after" do
-        test_key = "#{Faker.Pokemon.name()}_#{Enum.random(1..100_000_000_000)}"
-        value = %{some_value: Faker.App.name()}
+        test_key = Cache.Gen.key()
+        value = %{some_value: Cache.Gen.value()}
         cache_module = unquote(adapter)
 
         assert {:ok, nil} = cache_module.get(test_key)
@@ -93,8 +93,8 @@ defmodule CacheStrategyTest do
       end
 
       test "deleting from cache works" do
-        test_key = "#{Faker.Pokemon.name()}_#{Enum.random(1..100_000_000_000)}"
-        value = %{some_value: Faker.App.name()}
+        test_key = Cache.Gen.key()
+        value = %{some_value: Cache.Gen.value()}
         cache_module = unquote(adapter)
 
         assert :ok = cache_module.put(test_key, value)
@@ -109,8 +109,8 @@ defmodule CacheStrategyTest do
       end
 
       test "puts into the cache with nil acts like deleting" do
-        test_key = "#{Faker.Pokemon.name()}_#{Enum.random(1..100_000_000_000)}"
-        value = %{some_value: Faker.App.name()}
+        test_key = Cache.Gen.key()
+        value = %{some_value: Cache.Gen.value()}
         cache_module = unquote(adapter)
 
         assert {:ok, nil} = cache_module.get(test_key)
@@ -146,8 +146,8 @@ defmodule CacheStrategyTest do
       end
 
       test "finds an item in the cache that already exists" do
-        test_key = "#{Faker.Pokemon.name()}_#{Enum.random(1..100_000_000_000)}"
-        value = %{some_value: Faker.App.name()}
+        test_key = Cache.Gen.key()
+        value = %{some_value: Cache.Gen.value()}
         cache_module = unquote(adapter)
 
         assert :ok = cache_module.put(test_key, value)
@@ -163,8 +163,8 @@ defmodule CacheStrategyTest do
       end
 
       test "creates a value for key when key doesn't exist in cache" do
-        test_key = "#{Faker.Pokemon.name()}_#{Enum.random(1..100_000_000_000)}"
-        value = %{some_value: Faker.App.name()}
+        test_key = Cache.Gen.key()
+        value = %{some_value: Cache.Gen.value()}
         cache_module = unquote(adapter)
 
         assert {:ok, nil} = cache_module.get(test_key)
@@ -242,21 +242,21 @@ defmodule CacheStrategyTest do
     end
 
     test "reads from layer1 first when value is present" do
-      key = "#{Faker.Pokemon.name()}_#{Enum.random(1..100_000_000_000)}"
+      key = Cache.Gen.key()
       TestCache.Layer1.put(key, "from_layer1")
 
       assert {:ok, "from_layer1"} === TestCache.MultiLayerModules.get(key)
     end
 
     test "falls through to layer2 when layer1 misses" do
-      key = "#{Faker.Pokemon.name()}_#{Enum.random(1..100_000_000_000)}"
+      key = Cache.Gen.key()
       TestCache.Layer2.put(key, "from_layer2")
 
       assert {:ok, "from_layer2"} === TestCache.MultiLayerModules.get(key)
     end
 
     test "backfills layer1 after a hit in layer2" do
-      key = "#{Faker.Pokemon.name()}_#{Enum.random(1..100_000_000_000)}"
+      key = Cache.Gen.key()
       TestCache.Layer2.put(key, "from_layer2")
 
       assert {:ok, "from_layer2"} === TestCache.MultiLayerModules.get(key)
@@ -265,7 +265,7 @@ defmodule CacheStrategyTest do
     end
 
     test "returns nil when all layers miss" do
-      key = "#{Faker.Pokemon.name()}_#{Enum.random(1..100_000_000_000)}"
+      key = Cache.Gen.key()
 
       assert {:ok, nil} === TestCache.MultiLayerModules.get(key)
     end
@@ -290,7 +290,7 @@ defmodule CacheStrategyTest do
     end
 
     test "put writes to all layers" do
-      key = "#{Faker.Pokemon.name()}_#{Enum.random(1..100_000_000_000)}"
+      key = Cache.Gen.key()
 
       assert :ok = TestCache.MultiLayerModules.put(key, "value")
 
@@ -299,7 +299,7 @@ defmodule CacheStrategyTest do
     end
 
     test "delete removes from all layers" do
-      key = "#{Faker.Pokemon.name()}_#{Enum.random(1..100_000_000_000)}"
+      key = Cache.Gen.key()
 
       TestCache.MultiLayerModules.put(key, "value")
       assert :ok = TestCache.MultiLayerModules.delete(key)
@@ -325,7 +325,7 @@ defmodule CacheStrategyTest do
     end
 
     test "invokes fetch callback on total miss and backfills layers" do
-      key = "#{Faker.Pokemon.name()}_#{Enum.random(1..100_000_000_000)}"
+      key = Cache.Gen.key()
 
       assert {:ok, "fetched:#{key}"} === TestCache.MultiLayerFetch.get(key)
 

@@ -1,6 +1,5 @@
 defmodule Cache.ETS do
   require Logger
-  require Cache.OTPVersion
 
   @exit_signals [
     :sigabrt,

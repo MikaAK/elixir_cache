@@ -114,24 +114,27 @@ defmodule Cache do
           end
         end
 
-        if match?({_, _, _}, @adapter_opts) do
-          defp adapter_options!({module, fun, args}), do: apply(module, fun, args)
-        end
+        # Emit exactly one adapter_options!/1 clause matching the compile-time
+        # shape of @adapter_opts. The catch-all is only generated for the
+        # keyword-list/fallback case, so a specific clause never leaves a dead
+        # catch-all behind (which the 1.20 type checker flags as never used).
+        cond do
+          match?({_, _, _}, @adapter_opts) ->
+            defp adapter_options!({module, fun, args}), do: apply(module, fun, args)
 
-        if match?({_, _}, @adapter_opts) do
-          defp adapter_options!({app, key}), do: Application.fetch_env!(app, key)
-        end
+          match?({_, _}, @adapter_opts) ->
+            defp adapter_options!({app, key}), do: Application.fetch_env!(app, key)
 
-        if is_atom(@adapter_opts) and not is_nil(@adapter_opts) and not is_list(@adapter_opts) do
-          defp adapter_options!(app_name) when is_atom(app_name),
-            do: Application.fetch_env!(app_name, __MODULE__)
-        end
+          is_atom(@adapter_opts) and not is_nil(@adapter_opts) ->
+            defp adapter_options!(app_name) when is_atom(app_name),
+              do: Application.fetch_env!(app_name, __MODULE__)
 
-        if is_function(@adapter_opts, 0) do
-          defp adapter_options!(fun) when is_function(fun, 0), do: fun.()
-        end
+          is_function(@adapter_opts, 0) ->
+            defp adapter_options!(fun) when is_function(fun, 0), do: fun.()
 
-        defp adapter_options!(options), do: options
+          true ->
+            defp adapter_options!(options), do: options
+        end
 
         defp handle_adapter_result({:error, error} = result, operation, cache_name) do
           :telemetry.execute(
@@ -186,11 +189,8 @@ defmodule Cache do
 
                     res
 
-                  {:ok, _} = res ->
-                    res
-
-                  {:error, _} = error ->
-                    error
+                  other ->
+                    other
                 end
 
               {result, %{cache_name: @cache_name}}
@@ -295,25 +295,27 @@ defmodule Cache do
 
         def adapter_options, do: adapter_options!(@adapter_opts)
 
-        # Generate only the needed adapter_options!/1 clauses based on the actual adapter_opts
-        if match?({_, _, _}, @adapter_opts) do
-          defp adapter_options!({module, fun, args}), do: apply(module, fun, args)
-        end
+        # Emit exactly one adapter_options!/1 clause matching the compile-time
+        # shape of @adapter_opts. The catch-all is only generated for the
+        # keyword-list/fallback case, so a specific clause never leaves a dead
+        # catch-all behind (which the 1.20 type checker flags as never used).
+        cond do
+          match?({_, _, _}, @adapter_opts) ->
+            defp adapter_options!({module, fun, args}), do: apply(module, fun, args)
 
-        if match?({_, _}, @adapter_opts) do
-          defp adapter_options!({app, key}), do: Application.fetch_env!(app, key)
-        end
+          match?({_, _}, @adapter_opts) ->
+            defp adapter_options!({app, key}), do: Application.fetch_env!(app, key)
 
-        if is_atom(@adapter_opts) and not is_nil(@adapter_opts) and not is_list(@adapter_opts) do
-          defp adapter_options!(app_name) when is_atom(app_name),
-            do: Application.fetch_env!(app_name, __MODULE__)
-        end
+          is_atom(@adapter_opts) and not is_nil(@adapter_opts) ->
+            defp adapter_options!(app_name) when is_atom(app_name),
+              do: Application.fetch_env!(app_name, __MODULE__)
 
-        if is_function(@adapter_opts, 0) do
-          defp adapter_options!(fun) when is_function(fun, 0), do: fun.()
-        end
+          is_function(@adapter_opts, 0) ->
+            defp adapter_options!(fun) when is_function(fun, 0), do: fun.()
 
-        defp adapter_options!(options), do: options
+          true ->
+            defp adapter_options!(options), do: options
+        end
 
         defp handle_adapter_result({:error, error} = result, operation, cache_name) do
           :telemetry.execute(
@@ -372,8 +374,8 @@ defmodule Cache do
                   {:ok, value} ->
                     {:ok, Cache.TermEncoder.decode(value)}
 
-                  {:error, _} = error ->
-                    error
+                  other ->
+                    other
                 end
 
               {result, %{cache_name: @cache_name}}
