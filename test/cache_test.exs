@@ -41,7 +41,7 @@ defmodule CacheTest do
 
       test "puts into the cache and can get it back after" do
         test_key = Enum.random(1..100_000_000)
-        value = %{some_value: Faker.App.name()}
+        value = %{some_value: Cache.Gen.value()}
         cache_module = unquote(adapter)
 
         assert {:ok, nil} = cache_module.get(test_key)
@@ -54,7 +54,7 @@ defmodule CacheTest do
 
       test "deleting from cache works" do
         test_key = Enum.random(1..100_000_000)
-        value = %{some_value: Faker.App.name()}
+        value = %{some_value: Cache.Gen.value()}
         cache_module = unquote(adapter)
 
         assert :ok = cache_module.put(test_key, value)
@@ -70,7 +70,7 @@ defmodule CacheTest do
 
       test "puts into the cache with nil acts like deleting" do
         test_key = Enum.random(1..100_000_000)
-        value = %{some_value: Faker.App.name()}
+        value = %{some_value: Cache.Gen.value()}
         cache_module = unquote(adapter)
 
         assert {:ok, nil} = cache_module.get(test_key)
@@ -98,7 +98,7 @@ defmodule CacheTest do
 
       test "finds an item in the cache that already exists" do
         test_key = Enum.random(1..100_000_000)
-        value = %{some_value: Faker.App.name()}
+        value = %{some_value: Cache.Gen.value()}
         cache_module = unquote(adapter)
 
         assert :ok = cache_module.put(test_key, value)
@@ -115,7 +115,7 @@ defmodule CacheTest do
 
       test "creates a value for key when key doesn't exist in cache" do
         test_key = Enum.random(1..100_000_000)
-        value = %{some_value: Faker.App.name()}
+        value = %{some_value: Cache.Gen.value()}
         cache_module = unquote(adapter)
 
         assert {:ok, nil} = cache_module.get(test_key)

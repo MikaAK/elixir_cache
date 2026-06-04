@@ -27,7 +27,7 @@ defmodule Cache.RedisHashTest do
 
     keys = Cache.Redis.command!(@cache_name, ["KEYS", "#{@cache_name}:#{test_key(test, "*")}"])
 
-    if length(keys) > 0 do
+    if keys !== [] do
       Cache.Redis.command!(@cache_name, ["DEL"] ++ keys)
     end
 

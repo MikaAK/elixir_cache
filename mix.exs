@@ -5,7 +5,8 @@ defmodule ElixirCache.MixProject do
     [
       app: :elixir_cache,
       version: "0.4.9",
-      elixir: "~> 1.11",
+      elixir: "~> 1.15",
+      elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       description:
         "Standardized and testable caching across your app. In test caches are isolated.",
@@ -19,14 +20,19 @@ defmodule ElixirCache.MixProject do
         plt_local_path: "dialyzer",
         plt_core_path: "dialyzer"
       ],
-      preferred_cli_env: [
+      aliases: aliases()
+    ]
+  end
+
+  def cli do
+    [
+      preferred_envs: [
         dialyzer: :test,
         coveralls: :test,
         "coveralls.detail": :test,
         "coveralls.post": :test,
         "coveralls.html": :test
-      ],
-      aliases: aliases()
+      ]
     ]
   end
 
@@ -51,7 +57,6 @@ defmodule ElixirCache.MixProject do
       {:telemetry_metrics, "~> 1.0"},
       {:prometheus_telemetry, "~> 0.3", optional: true},
       {:libring, "~> 1.7"},
-      {:faker, "~> 0.17", only: [:test]},
       {:credo, "~> 1.6", only: [:test, :dev], runtime: false},
       {:blitz_credo_checks, "~> 0.1", only: [:test, :dev], runtime: false},
       {:excoveralls, "~> 0.10", only: :test},
@@ -68,6 +73,9 @@ defmodule ElixirCache.MixProject do
       files: ~w(mix.exs README.md CHANGELOG.md LICENSE lib)
     ]
   end
+
+  defp elixirc_paths(:test), do: ["lib", "test/support"]
+  defp elixirc_paths(_), do: ["lib"]
 
   defp aliases do
     [
