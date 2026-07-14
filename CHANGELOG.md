@@ -1,3 +1,26 @@
+# 0.5.0
+
+## Performance
+
+- perf: values are no longer run through `:erlang.term_to_binary/1` for adapters that store Erlang terms natively (`Cache.ETS`, `Cache.Agent`, `Cache.PersistentTerm`, `Cache.ConCache`, `Cache.Counter`). The encode/decode round trip was pure overhead on those adapters, and the decode dominated the lookup it was attached to. On a 500k-entry ETS table, `get/1` of a ~10KB body drops from **29,981 ns to 6,211 ns (4.8x)** and `put/2` from **23,542 ns to 10,804 ns (2.2x)**. The win holds across payload sizes — a small map goes from 2,105 ns to 302 ns (7.0x).
+- `Cache.PersistentTerm` now hands out the stored term itself on every read, restoring the zero-copy property the adapter exists for.
+
+## Features
+
+- feat: added the optional `c:Cache.native_term_storage?/1` callback, letting an adapter declare that it stores Erlang terms natively. It is resolved at compile time, so there is no runtime branch on the read or write path. The callback is optional and defaults to encoding, so third-party adapters keep their current behaviour unchanged.
+
+## Bug Fixes
+
+- fix: `Cache.ConCache.get_or_store/3` followed by `get/1` no longer raises. `get_or_store/3` writes through ConCache directly, bypassing the encode in `put/3`, so the matching `get/1` tried to `binary_to_term/1` a raw term.
+- fix: a binary value wrapped in braces but not valid JSON (eg `"{oops}"`) no longer raises `Jason.DecodeError` on read. `Cache.TermEncoder.decode/1` used `Jason.decode!/1`, and now falls back to returning the binary unchanged.
+- fix: raw `Cache.ETS` operations (`match_object/1`, `select/1`, `tab2list/0`, `foldl/2`) now see the terms that were `put`, rather than the opaque encoded binaries they used to return.
+
+## Breaking Changes
+
+- Values held by native-term adapters are now stored as terms rather than encoded binaries. This is not observable through `get/1`, `put/3` and `delete/1`, which round-trip exactly as before. It is observable if you read the underlying store directly (`:ets.lookup/2`, `:persistent_term.get/1`, `ConCache.get/2`) or through the raw ETS API — those now return terms, which is what they were always meant to return.
+- `Cache.DETS` is unchanged and still encodes, so existing `.dets` files stay readable. `Cache.ETS` with `:rehydration_path` also still encodes, so existing table dumps stay loadable.
+- An in-memory cache populated by an older version and read by this one would return raw binaries, but ETS, Agent, PersistentTerm and ConCache do not survive a restart, so there is no upgrade path on which that can happen.
+
 # 0.4.9
 
 ## Performance

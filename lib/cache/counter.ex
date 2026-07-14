@@ -95,6 +95,13 @@ defmodule Cache.Counter do
   @impl Cache
   def opts_definition, do: @opts_definition
 
+  @doc """
+  Values are integers in an `:counters` array. `Cache.TermEncoder.encode/2` already
+  passed integers through untouched, so this only removes a no-op function call.
+  """
+  @impl Cache
+  def native_term_storage?(_opts), do: true
+
   @impl Cache
   def start_link(opts) do
     parent = self()

@@ -363,6 +363,23 @@ defmodule Cache.DETS do
   @impl Cache
   def opts_definition, do: @opts_definition
 
+  @doc """
+  DETS keeps encoding, even though `:dets.insert/2` takes terms and would serialise
+  them itself.
+
+  The reason is the file on disk. Every `.dets` file written by an earlier version of
+  this library holds `:erlang.term_to_binary/1` blobs as its values. Those files outlive
+  the upgrade — that is the entire point of a disk cache. If this adapter switched to
+  native terms, the first read after an upgrade would hand the caller a raw binary where
+  it expects a term, silently, with no error to trace it back to.
+
+  The cost of keeping it is one redundant serialisation of data that is already headed
+  for a disk write, which is dominated by the I/O. The cost of dropping it is corrupting
+  every existing on-disk cache. That trade is not close.
+  """
+  @impl Cache
+  def native_term_storage?(_opts), do: false
+
   @impl Cache
   def start_link(opts) do
     parent = self()
