@@ -200,6 +200,13 @@ defmodule Cache.Redis do
   @impl Cache
   def opts_definition, do: @opts_definition
 
+  @doc """
+  Redis stores bytes on the wire. Terms must be serialised before they leave the node,
+  so this adapter always encodes.
+  """
+  @impl Cache
+  def native_term_storage?(_opts), do: false
+
   @impl Cache
   def start_link(opts) do
     if !opts[:uri] do

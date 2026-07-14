@@ -570,6 +570,20 @@ defmodule Cache.ETS do
   @impl Cache
   def opts_definition, do: @opts_definition
 
+  @doc """
+  `:ets.insert/2` stores terms, so encoding is pure overhead — and it actively breaks
+  the raw ETS API this adapter exposes (`match_object/1`, `select/1`, `tab2list/0`,
+  `foldl/2`), which sees opaque binaries instead of the terms that were put.
+
+  The exception is `:rehydration_path`. That option dumps the table to disk with
+  `:ets.tab2file/2` and reads it back on the next boot, so the table is a durable
+  format. Encoding is kept there for the same reason it is kept for `Cache.DETS`:
+  a table dumped by an older version holds `term_to_binary/1` blobs, and switching to
+  native terms would hand callers raw binaries where they expect terms.
+  """
+  @impl Cache
+  def native_term_storage?(opts), do: is_nil(opts[:rehydration_path])
+
   def opts_definition(opts) when is_list(opts) do
     if Keyword.keyword?(opts) do
       validate_and_normalize_ets_options(opts)

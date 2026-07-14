@@ -38,6 +38,20 @@ defmodule Cache.MultiLayerTest do
       opts: [backfill_ttl: 5000]
   end
 
+  defmodule MixedRedisLayer do
+    use Cache,
+      adapter: Cache.Redis,
+      name: :ml_redis_layer,
+      opts: [uri: "redis://localhost:6379"]
+  end
+
+  defmodule MixedLayerCache do
+    use Cache,
+      adapter: {Cache.MultiLayer, [FastCache, MixedRedisLayer]},
+      name: :mixed_layer_cache,
+      opts: []
+  end
+
   setup do
     start_supervised!(%{
       id: :fast_cache_sup,
@@ -154,6 +168,52 @@ defmodule Cache.MultiLayerTest do
   describe "Cache.Strategy.strategy?/1" do
     test "recognises Cache.MultiLayer as a strategy" do
       assert Cache.Strategy.strategy?(Cache.MultiLayer) === true
+    end
+  end
+
+  describe "encoding across layers of different adapters" do
+    setup do
+      start_supervised!({Cache, [MixedRedisLayer]})
+
+      start_supervised!(%{
+        id: :mixed_layer_sup,
+        type: :supervisor,
+        start: {Cache, :start_link, [[MixedLayerCache], [name: :mixed_layer_sup]]}
+      })
+
+      # Cleaned up front rather than in on_exit, which runs after the pool is torn down.
+      Cache.Redis.command!(:ml_redis_layer, ["DEL", "ml_redis_layer:mixed_key"])
+
+      :ok
+    end
+
+    test "each layer stores in its own native format — ETS gets the term, Redis gets bytes" do
+      value = %{user: "mika", roles: [:admin]}
+
+      assert :ok === MixedLayerCache.put("mixed_key", value)
+
+      # The ETS layer holds the term itself — no encode/decode on the hot read path.
+      assert [{"mixed_key", ^value}] = :ets.lookup(:ml_fast_cache, "mixed_key")
+
+      # The Redis layer holds an encoded binary, because bytes are all Redis can hold.
+      raw = Cache.Redis.command!(:ml_redis_layer, ["GET", "ml_redis_layer:mixed_key"])
+
+      assert is_binary(raw)
+      assert :erlang.binary_to_term(raw) === value
+
+      assert {:ok, ^value} = MixedLayerCache.get("mixed_key")
+    end
+
+    test "a value backfilled from the Redis layer lands in ETS as a term" do
+      value = %{backfilled: true}
+
+      assert :ok === MixedRedisLayer.put("mixed_key", value)
+      assert {:ok, nil} === FastCache.get("mixed_key")
+
+      # Reading through the layers hits Redis, decodes, and backfills ETS.
+      assert {:ok, ^value} = MixedLayerCache.get("mixed_key")
+
+      assert [{"mixed_key", ^value}] = :ets.lookup(:ml_fast_cache, "mixed_key")
     end
   end
 end

@@ -10,6 +10,12 @@ defmodule Cache.Agent do
   @impl Cache
   def opts_definition, do: []
 
+  @doc """
+  Values are held as terms in the Agent's map, so encoding them is pure overhead.
+  """
+  @impl Cache
+  def native_term_storage?(_opts), do: true
+
   @impl Cache
   def start_link(opts \\ []) do
     with {:error, {:already_started, pid}} <- Agent.start_link(fn -> %{} end, opts) do
