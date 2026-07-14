@@ -55,6 +55,14 @@ defmodule Cache.Sandbox do
   @impl Cache
   def opts_definition, do: []
 
+  @doc """
+  The sandbox holds terms in an Agent map. It is never consulted directly to decide
+  whether to encode — `Cache` resolves that against the adapter the sandbox stands in
+  for, so a sandboxed cache round-trips values exactly like the real one.
+  """
+  @impl Cache
+  def native_term_storage?(_opts), do: true
+
   @impl Cache
   def start_link(opts \\ []) do
     with {:error, {:already_started, pid}} <- Agent.start_link(fn -> %{} end, opts) do

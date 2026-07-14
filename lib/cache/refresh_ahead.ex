@@ -126,18 +126,16 @@ defmodule Cache.RefreshAhead do
         Keyword.drop(adapter_opts, [:refresh_before, :on_refresh, :lock_node_whitelist, :__cache_module__])
       )
 
-    compression_level = underlying_opts[:compression_level]
-
     case underlying_adapter.get(cache_name, key, underlying_opts) do
       {:ok, nil} ->
         {:ok, nil}
 
-      {:ok, encoded} ->
-        case Cache.TermEncoder.decode(encoded) do
+      {:ok, stored} ->
+        case Cache.TermEncoder.maybe_decode(stored, underlying_adapter, underlying_opts) do
           {value, inserted_at, ttl} ->
             maybe_refresh_async(
               cache_name, key, value, inserted_at, ttl,
-              underlying_adapter, adapter_opts, compression_level
+              underlying_adapter, adapter_opts, underlying_opts
             )
             {:ok, value}
 
@@ -159,9 +157,11 @@ defmodule Cache.RefreshAhead do
         Keyword.drop(adapter_opts, [:refresh_before, :on_refresh, :lock_node_whitelist, :__cache_module__])
       )
 
-    compression_level = underlying_opts[:compression_level]
     inserted_at = System.monotonic_time(:millisecond)
-    wrapped = Cache.TermEncoder.encode({value, inserted_at, ttl}, compression_level)
+
+    wrapped =
+      Cache.TermEncoder.maybe_encode({value, inserted_at, ttl}, underlying_adapter, underlying_opts)
+
     underlying_adapter.put(cache_name, key, ttl, wrapped, underlying_opts)
   end
 
@@ -179,21 +179,21 @@ defmodule Cache.RefreshAhead do
     underlying_adapter.delete(cache_name, key, underlying_opts)
   end
 
-  defp maybe_refresh_async(cache_name, key, _value, inserted_at, ttl, underlying_adapter, adapter_opts, compression_level)
+  defp maybe_refresh_async(cache_name, key, _value, inserted_at, ttl, underlying_adapter, adapter_opts, underlying_opts)
        when is_integer(ttl) do
     refresh_before = adapter_opts[:refresh_before]
     now = System.monotonic_time(:millisecond)
     age = now - inserted_at
 
     if age >= ttl - refresh_before do
-      maybe_spawn_refresh(cache_name, key, ttl, underlying_adapter, adapter_opts, compression_level)
+      maybe_spawn_refresh(cache_name, key, ttl, underlying_adapter, adapter_opts, underlying_opts)
     end
   end
 
-  defp maybe_refresh_async(_cache_name, _key, _value, _inserted_at, _ttl, _underlying_adapter, _adapter_opts, _compression_level),
+  defp maybe_refresh_async(_cache_name, _key, _value, _inserted_at, _ttl, _underlying_adapter, _adapter_opts, _underlying_opts),
     do: :ok
 
-  defp maybe_spawn_refresh(cache_name, key, ttl, underlying_adapter, adapter_opts, compression_level) do
+  defp maybe_spawn_refresh(cache_name, key, ttl, underlying_adapter, adapter_opts, underlying_opts) do
     tracker = tracker_name(cache_name)
 
     if safe_ets_insert_new(tracker, {key, true}) do
@@ -209,16 +209,15 @@ defmodule Cache.RefreshAhead do
 
             case invoke_refresh(on_refresh, cache_module, key) do
               {:ok, new_value} ->
-                underlying_opts =
-                  Keyword.drop(adapter_opts, [
-                    :refresh_before,
-                    :on_refresh,
-                    :lock_node_whitelist,
-                    :__cache_module__
-                  ])
-
                 new_inserted_at = System.monotonic_time(:millisecond)
-                wrapped = Cache.TermEncoder.encode({new_value, new_inserted_at, ttl}, compression_level)
+
+                wrapped =
+                  Cache.TermEncoder.maybe_encode(
+                    {new_value, new_inserted_at, ttl},
+                    underlying_adapter,
+                    underlying_opts
+                  )
+
                 underlying_adapter.put(cache_name, key, ttl, wrapped, underlying_opts)
 
               {:error, _} ->

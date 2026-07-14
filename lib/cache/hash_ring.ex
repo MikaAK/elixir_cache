@@ -167,8 +167,8 @@ defmodule Cache.HashRing do
       {:ok, nil} ->
         read_repair(cache_name, key, target_node, underlying_adapter, underlying_opts, rpc)
 
-      {:ok, encoded} ->
-        {:ok, Cache.TermEncoder.decode(encoded)}
+      {:ok, stored} ->
+        {:ok, Cache.TermEncoder.maybe_decode(stored, underlying_adapter, underlying_opts)}
 
       {:error, _} = error ->
         error
@@ -180,7 +180,7 @@ defmodule Cache.HashRing do
     target_node = key_to_node(cache_name, key)
     rpc = adapter_opts[:rpc_module] || :erpc
     underlying_opts = validate_underlying_opts(underlying_adapter, Keyword.drop(adapter_opts, @strategy_keys))
-    encoded = Cache.TermEncoder.encode(value, underlying_opts[:compression_level])
+    encoded = Cache.TermEncoder.maybe_encode(value, underlying_adapter, underlying_opts)
 
     if target_node === Node.self() do
       underlying_adapter.put(cache_name, key, ttl, encoded, underlying_opts)
@@ -231,8 +231,8 @@ defmodule Cache.HashRing do
       end)
 
     case result do
-      {:found, encoded, old_node} ->
-        value = Cache.TermEncoder.decode(encoded)
+      {:found, stored, old_node} ->
+        value = Cache.TermEncoder.maybe_decode(stored, underlying_adapter, underlying_opts)
         migrate_value(cache_name, key, value, current_node, old_node, underlying_adapter, underlying_opts, rpc)
         {:ok, value}
 
@@ -242,7 +242,7 @@ defmodule Cache.HashRing do
   end
 
   defp migrate_value(cache_name, key, value, current_node, old_node, underlying_adapter, underlying_opts, rpc) do
-    encoded = Cache.TermEncoder.encode(value, underlying_opts[:compression_level])
+    encoded = Cache.TermEncoder.maybe_encode(value, underlying_adapter, underlying_opts)
 
     if current_node === Node.self() do
       underlying_adapter.put(cache_name, key, nil, encoded, underlying_opts)
