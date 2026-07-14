@@ -155,6 +155,13 @@ defmodule Cache.RefreshAheadTest do
       Process.sleep(250)
 
       assert {:ok, "original"} === LockedRefreshCache.get("locked_key")
+
+      # That get spawned a refresh task. Wait for it to lose the race for the lock and
+      # clean itself up before releasing — otherwise it can reach :global.set_lock after
+      # the del_lock below, take the freed lock, and refresh the value we assert is still
+      # untouched.
+      Process.sleep(250)
+
       assert true === :global.del_lock(lock_id, lock_nodes)
 
       assert {:ok, "original"} === LockedRefreshCache.get("locked_key")
