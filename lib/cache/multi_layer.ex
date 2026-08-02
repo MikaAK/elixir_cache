@@ -69,6 +69,33 @@ defmodule Cache.MultiLayer do
   end
   ```
 
+  ## Cross-Node Coherence (Optional)
+
+  Node-local fast layers (e.g. `Cache.ETS`) go stale on every node except the
+  writer. Setting `broadcast_mode` keeps them coherent: after a successful
+  `put`/`delete`, every other node running this cache (tracked via `:pg` —
+  see `Cache.MultiLayer.Coordinator`) is notified and applies the change to
+  its own `broadcast_layers`.
+
+  ```elixir
+  defmodule MyApp.LayeredCache do
+    use Cache,
+      adapter: {Cache.MultiLayer, [MyApp.EtsLayer, MyApp.RedisCache]},
+      name: :layered_cache,
+      opts: [
+        backfill_ttl: :timer.seconds(30),
+        broadcast_mode: :invalidate,
+        broadcast_layers: [MyApp.EtsLayer]
+      ]
+  end
+  ```
+
+  `:invalidate` sends only the key — remote nodes drop their local entry and
+  lazily re-read through the shared layer. `:replicate` ships the value so
+  remote local layers are updated immediately; use it only for small values.
+  Delivery is best-effort: always keep `backfill_ttl` (and layer TTLs) as the
+  correctness floor for members that miss a message.
+
   ## Options
 
   #{NimbleOptions.docs([
@@ -79,6 +106,14 @@ defmodule Cache.MultiLayer do
     backfill_ttl: [
       type: {:or, [:pos_integer, nil]},
       doc: "TTL in milliseconds to use when backfilling layers on a hit from a slower layer. Defaults to nil (no expiry)."
+    ],
+    broadcast_mode: [
+      type: {:in, [:invalidate, :replicate]},
+      doc: "Cross-node coherence for writes: `:invalidate` deletes the key from other nodes' `broadcast_layers`; `:replicate` pushes the written value to them. Best-effort delivery."
+    ],
+    broadcast_layers: [
+      type: {:list, :atom},
+      doc: "Node-local layer modules the broadcast applies to on other nodes. Required with `broadcast_mode`; must not include the shared (slowest) layer."
     ]
   ])}
   """
@@ -93,6 +128,16 @@ defmodule Cache.MultiLayer do
     backfill_ttl: [
       type: {:or, [:pos_integer, nil]},
       doc: "TTL for backfilled entries."
+    ],
+    broadcast_mode: [
+      type: {:in, [:invalidate, :replicate]},
+      doc:
+        "Cross-node coherence for writes: :invalidate deletes the key from other nodes' broadcast_layers (next read falls through and backfills fresh); :replicate pushes the written value to them. Best-effort delivery — keep TTLs as the correctness floor."
+    ],
+    broadcast_layers: [
+      type: {:list, :atom},
+      doc:
+        "Node-local layer modules the broadcast applies to on the other nodes. Required when broadcast_mode is set; must not include the shared (slowest) layer."
     ]
   ]
 
@@ -101,10 +146,7 @@ defmodule Cache.MultiLayer do
 
   @impl Cache.Strategy
   def child_spec({cache_name, _layers, _adapter_opts}) do
-    %{
-      id: :"#{cache_name}_multi_layer",
-      start: {Agent, :start_link, [fn -> :ok end, [name: :"#{cache_name}_multi_layer"]]}
-    }
+    Cache.MultiLayer.Coordinator.child_spec(cache_name)
   end
 
   @impl Cache.Strategy
@@ -124,17 +166,67 @@ defmodule Cache.MultiLayer do
   @impl Cache.Strategy
   def put(cache_name, key, ttl, value, layers, adapter_opts) do
     reversed = Enum.reverse(layers)
-    put_to_layers(cache_name, key, ttl, value, reversed, adapter_opts)
+
+    with :ok <- put_to_layers(cache_name, key, ttl, value, reversed, adapter_opts) do
+      broadcast_write(cache_name, key, ttl, value, adapter_opts)
+      :ok
+    end
   end
 
   @impl Cache.Strategy
-  def delete(cache_name, key, layers, _adapter_opts) do
-    Enum.reduce_while(layers, :ok, fn layer, _acc ->
-      case layer_delete(cache_name, key, layer) do
-        :ok -> {:cont, :ok}
-        {:error, _} = error -> {:halt, error}
-      end
-    end)
+  def delete(cache_name, key, layers, adapter_opts) do
+    result =
+      Enum.reduce_while(layers, :ok, fn layer, _acc ->
+        case layer_delete(cache_name, key, layer) do
+          :ok -> {:cont, :ok}
+          {:error, _} = error -> {:halt, error}
+        end
+      end)
+
+    with :ok <- result do
+      broadcast_delete(cache_name, key, adapter_opts)
+      :ok
+    end
+  end
+
+  # Cross-node coherence (see Cache.MultiLayer.Coordinator). Broadcast only
+  # after the local write succeeded — writes go slowest-first, so by the time
+  # a remote node reacts (delete + lazy re-read, or replicated put) the shared
+  # layer already holds the new value.
+  defp broadcast_write(cache_name, key, ttl, value, adapter_opts) do
+    case adapter_opts[:broadcast_mode] do
+      nil ->
+        :ok
+
+      :invalidate ->
+        Cache.MultiLayer.Coordinator.broadcast(
+          cache_name,
+          {:multi_layer_invalidate, key, broadcast_layers!(adapter_opts)}
+        )
+
+      :replicate ->
+        Cache.MultiLayer.Coordinator.broadcast(
+          cache_name,
+          {:multi_layer_replicate, key, ttl, value, broadcast_layers!(adapter_opts)}
+        )
+    end
+  end
+
+  defp broadcast_delete(cache_name, key, adapter_opts) do
+    if is_nil(adapter_opts[:broadcast_mode]) do
+      :ok
+    else
+      Cache.MultiLayer.Coordinator.broadcast(
+        cache_name,
+        {:multi_layer_invalidate, key, broadcast_layers!(adapter_opts)}
+      )
+    end
+  end
+
+  defp broadcast_layers!(adapter_opts) do
+    adapter_opts[:broadcast_layers] ||
+      raise ArgumentError,
+            "broadcast_mode is set but broadcast_layers is missing — list the node-local layer modules the broadcast should apply to"
   end
 
   defp get_from_layers(_cache_name, _key, [], _adapter_opts, _visited), do: :miss
