@@ -208,6 +208,13 @@ defmodule Cache.NativeTermStorageTest do
       assert {:ok, ^value} = DETSCache.get(:dets_key)
     end
 
+    test "a Redis key written by an older version still decodes to the original term" do
+      legacy = :erlang.term_to_binary(%{written_by: "0.4.9"})
+      Cache.Redis.command!(:nts_redis, ["SET", "nts_redis:legacy_key", legacy])
+
+      assert {:ok, %{written_by: "0.4.9"}} === RedisCache.get("legacy_key")
+    end
+
     test "a DETS file written by an older version still decodes to the original term" do
       on_exit(fn -> File.rm_rf("/tmp/nts_dets") end)
 
@@ -226,6 +233,39 @@ defmodule Cache.NativeTermStorageTest do
       assert is_binary(encoded)
       assert byte_size(encoded) < byte_size(:erlang.term_to_binary(value))
       assert Cache.TermEncoder.maybe_decode(encoded, Cache.ETS, opts) === value
+    end
+  end
+
+  describe "the durability invariant" do
+    test "every store whose data outlives the process that wrote it still encodes" do
+      # This is the whole upgrade-safety argument in one assertion. Skipping the encode
+      # is only safe where the previous version's bytes cannot survive to be read by
+      # this one, which means the value dies with the VM that wrote it. Anything that
+      # reaches a disk, a Redis server or another node keeps the 0.4.x representation.
+      # A new adapter or option that persists values belongs in this list on the day it
+      # lands, not after an upgrade hands somebody a raw `<<131, ...>>` binary.
+      durable_stores = [
+        {Cache.Redis, [uri: "redis://localhost:6379"]},
+        {Cache.DETS, [file_path: "/tmp/nts_dets"]},
+        {Cache.ETS, [rehydration_path: "/tmp/nts"]},
+        {{Cache.HashRing, Cache.ETS}, []},
+        {{Cache.MultiLayer, [ETSCache]}, [broadcast_mode: :replicate]}
+      ]
+
+      Enum.each(durable_stores, fn {adapter, opts} ->
+        assert Cache.TermEncoder.encoding_required?(adapter, opts),
+               "#{inspect(adapter)} keeps values past the process that wrote them, so it must " <>
+                 "encode — otherwise an upgrade reads the previous version's bytes as a term"
+      end)
+    end
+
+    test "every store that does not encode loses its data when the VM stops" do
+      volatile_stores = [Cache.ETS, Cache.Agent, Cache.PersistentTerm, Cache.ConCache, Cache.Counter]
+
+      Enum.each(volatile_stores, fn adapter ->
+        refute Cache.TermEncoder.encoding_required?(adapter, []),
+               "#{inspect(adapter)} holds terms in memory only, so encoding them buys nothing"
+      end)
     end
   end
 
