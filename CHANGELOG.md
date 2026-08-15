@@ -19,7 +19,8 @@
 
 - Values held by native-term adapters are now stored as terms rather than encoded binaries. This is not observable through `get/1`, `put/3` and `delete/1`, which round-trip exactly as before. It is observable if you read the underlying store directly (`:ets.lookup/2`, `:persistent_term.get/1`, `ConCache.get/2`) or through the raw ETS API — those now return terms, which is what they were always meant to return.
 - `Cache.DETS` is unchanged and still encodes, so existing `.dets` files stay readable. `Cache.ETS` with `:rehydration_path` also still encodes, so existing table dumps stay loadable.
-- An in-memory cache populated by an older version and read by this one would return raw binaries, but ETS, Agent, PersistentTerm and ConCache do not survive a restart, so there is no upgrade path on which that can happen.
+- `Cache.HashRing`, and `Cache.MultiLayer` under `broadcast_mode: :replicate`, also still encode. Those strategies hand the stored value to another node, so a rolling deploy has 0.4.x and 0.5.x reading each other's writes for the same key and they have to agree on the representation. Their wire format is unchanged from 0.4.x and a mixed-version cluster is safe.
+- An in-memory cache populated by an older version and read by this one would return raw binaries, but ETS, Agent, PersistentTerm and ConCache do not survive a restart, and every representation that outlives a node — disk, Redis, another node — is still encoded, so there is no upgrade path on which that can happen.
 
 # 0.4.9
 

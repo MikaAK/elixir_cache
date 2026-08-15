@@ -5,8 +5,9 @@ defmodule Cache.TermEncoder do
   #
   # Adapters that store Erlang terms natively (ETS, Agent, PersistentTerm, ConCache,
   # Counter) do not need `term_to_binary/1` — the round trip is pure overhead and it
-  # is the dominant cost on a hot read path. Adapters that store bytes (Redis) or
-  # that own a durable on-disk format (DETS) still need it.
+  # is the dominant cost on a hot read path. Adapters that store bytes (Redis), own
+  # a durable on-disk format (DETS), or hand the stored value to another node
+  # (HashRing, replicating MultiLayer) still need it.
   #
   # Resolution is done once at compile time by the `Cache` macro, so there is no
   # runtime branch on the read/write path.
@@ -19,6 +20,9 @@ defmodule Cache.TermEncoder do
     * the adapter stores bytes rather than terms (`Cache.Redis`), or
     * the adapter persists an encoded format to disk (`Cache.DETS`,
       `Cache.ETS` with `:rehydration_path`), or
+    * the strategy sends the stored value to another node (`Cache.HashRing`,
+      `Cache.MultiLayer` with `broadcast_mode: :replicate`), where two versions of
+      this library have to agree on the representation, or
     * `:compression_level` is set — the caller explicitly asked for compression, or
     * the adapter opts are resolved at runtime, so the capability cannot be read at
       compile time. Encoding is the safe default: it is what every adapter did before.
@@ -44,19 +48,36 @@ defmodule Cache.TermEncoder do
   @doc """
   Returns true when the adapter stores Erlang terms natively, given its options.
 
-  Strategy adapters (`{Cache.HashRing, Cache.ETS}`) delegate to the adapter they wrap.
+  Strategy adapters (`{Cache.RefreshAhead, Cache.ETS}`) delegate to the adapter they
+  wrap, unless the strategy puts the stored value on the wire — see below.
   """
   @spec native_term_storage?(module() | {module(), term()}, keyword()) :: boolean()
   def native_term_storage?(adapter, adapter_opts)
+
+  # A strategy that sends the stored value to another node has to keep a
+  # version-stable representation: during a rolling deploy two versions of this
+  # library read each other's writes for the same key, and they must agree on
+  # whether that value is a term or a binary. Encoding is that agreement, so
+  # these keep encoding no matter what the underlying adapter can hold.
+  #
+  # `Cache.HashRing` rpcs the value to the node that owns the key.
+  def native_term_storage?({Cache.HashRing, _underlying_adapter}, _adapter_opts), do: false
+
+  # `Cache.MultiLayer` only puts a value on the wire under `broadcast_mode: :replicate`
+  # — `:invalidate` broadcasts the key alone, and with no broadcast nothing leaves the
+  # node. Each layer is a full `Cache` module that encodes for its own adapter anyway.
+  def native_term_storage?({Cache.MultiLayer, _layers}, adapter_opts) do
+    adapter_opts[:broadcast_mode] !== :replicate
+  end
 
   def native_term_storage?({_strategy_module, underlying_adapter}, adapter_opts)
       when is_atom(underlying_adapter) do
     native_term_storage?(underlying_adapter, adapter_opts)
   end
 
-  # Strategies configured with something other than an adapter module (eg the layer
-  # list of `Cache.MultiLayer`) only reach this path under `sandbox?: true`, where the
-  # store is `Cache.Sandbox` and holds terms natively.
+  # Strategies configured with something other than an adapter module — the layer list
+  # of a `Cache.MultiLayer` under `sandbox?: true`, where the store is `Cache.Sandbox`
+  # and holds terms natively.
   def native_term_storage?({_strategy_module, _strategy_config}, _adapter_opts), do: true
 
   def native_term_storage?(adapter, adapter_opts) when is_atom(adapter) do

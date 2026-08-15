@@ -93,8 +93,26 @@ defmodule Cache.NativeTermStorageTest do
     end
 
     test "a strategy delegates to the adapter it wraps" do
-      refute Cache.TermEncoder.encoding_required?({Cache.HashRing, Cache.ETS}, [])
+      refute Cache.TermEncoder.encoding_required?({Cache.RefreshAhead, Cache.ETS}, [])
       assert Cache.TermEncoder.encoding_required?({Cache.RefreshAhead, Cache.Redis}, [])
+    end
+
+    test "is true for a strategy that hands the stored value to another node" do
+      assert Cache.TermEncoder.encoding_required?({Cache.HashRing, Cache.ETS}, [])
+
+      assert Cache.TermEncoder.encoding_required?(
+               {Cache.MultiLayer, [ETSCache]},
+               broadcast_mode: :replicate
+             )
+    end
+
+    test "is false for a MultiLayer that keeps values node-local" do
+      refute Cache.TermEncoder.encoding_required?({Cache.MultiLayer, [ETSCache]}, [])
+
+      refute Cache.TermEncoder.encoding_required?(
+               {Cache.MultiLayer, [ETSCache]},
+               broadcast_mode: :invalidate
+             )
     end
   end
 

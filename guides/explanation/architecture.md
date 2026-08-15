@@ -50,6 +50,10 @@ Adapters that cannot hold a term serialise it with `:erlang.term_to_binary/1`:
 - `Cache.Redis` stores bytes on the wire, so terms must be serialised before they leave the node.
 - `Cache.DETS` owns a durable on-disk format, and so does `Cache.ETS` when configured with
   `:rehydration_path`. Both keep encoding so that files written by earlier versions stay readable.
+- `Cache.HashRing` rpcs the stored value to the node that owns the key, and `Cache.MultiLayer`
+  under `broadcast_mode: :replicate` pushes it to the other nodes' layers. Both keep encoding:
+  during a rolling deploy two versions of this library read each other's writes for the same
+  key, so the representation has to stay stable across versions.
 
 Setting `:compression_level` forces encoding on any adapter — an explicit request to compress
 is honoured even when the backend could have held the term directly.

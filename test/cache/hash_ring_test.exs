@@ -158,12 +158,11 @@ defmodule Cache.HashRingTest do
     test "recovers value via read-repair from old ring owner" do
       cache_name = :test_hash_ring_cache
       fake_node = :fake_live@node
-      # Cache.ETS stores terms natively, so a real remote node returns the term as-is.
-      stored = "repaired_value"
+      encoded = Cache.TermEncoder.encode("repaired_value", nil)
 
       rpc_module = build_rpc(fn node, _mod, func, _args ->
         cond do
-          node === fake_node and func === :get -> {:ok, stored}
+          node === fake_node and func === :get -> {:ok, encoded}
           func === :put -> :ok
           func === :delete -> :ok
           true -> {:ok, nil}
@@ -181,7 +180,7 @@ defmodule Cache.HashRingTest do
     test "migrates value to current node and schedules async delete on repair" do
       cache_name = :test_hash_ring_cache
       fake_node = :fake_migrate@node
-      stored = "migrate_me"
+      encoded = Cache.TermEncoder.encode("migrate_me", nil)
       calls_agent = :"repair_calls_#{:erlang.unique_integer([:positive])}"
       {:ok, _} = Agent.start_link(fn -> [] end, name: calls_agent)
 
@@ -189,7 +188,7 @@ defmodule Cache.HashRingTest do
         Agent.update(calls_agent, fn acc -> [{node, func} | acc] end)
 
         cond do
-          node === fake_node and func === :get -> {:ok, stored}
+          node === fake_node and func === :get -> {:ok, encoded}
           func === :put -> :ok
           func === :delete -> :ok
           true -> {:ok, nil}
