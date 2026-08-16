@@ -8,10 +8,12 @@ defmodule Cache.TermEncoderTest do
       assert 1 === TermEncoder.encode(1, nil)
     end
 
-    test "encodes JSON properly" do
+    test "encodes a JSON string as a term rather than handing it through unencoded" do
       json = Jason.encode!(%{"a" => 1})
+      encoded = TermEncoder.encode(json, nil)
 
-      assert json === TermEncoder.encode(json, nil)
+      assert <<131, _rest::binary>> = encoded
+      assert :erlang.binary_to_term(encoded) === json
     end
 
     test "encodes terms properly" do
@@ -22,11 +24,11 @@ defmodule Cache.TermEncoderTest do
   end
 
   describe "&decode/1" do
-    test "decodes integers properly" do
+    test "decodes an unencoded integer written by an earlier version" do
       assert 123 === TermEncoder.decode("123")
     end
 
-    test "decodes JSON properly" do
+    test "decodes an unencoded JSON string written by an earlier version" do
       json = Jason.encode!(%{"a" => 1})
 
       assert %{"a" => 1} === TermEncoder.decode(json)

@@ -1,3 +1,31 @@
+# 0.5.0
+
+## Performance
+
+- perf: values are no longer run through `:erlang.term_to_binary/1` for adapters that store Erlang terms natively (`Cache.ETS`, `Cache.Agent`, `Cache.PersistentTerm`, `Cache.ConCache`, `Cache.Counter`). The encode/decode round trip was pure overhead on those adapters, and the decode dominated the lookup it was attached to. On a 500k-entry ETS table, `get/1` of a ~10KB body drops from **29,981 ns to 6,211 ns (4.8x)** and `put/2` from **23,542 ns to 10,804 ns (2.2x)**. The win holds across payload sizes — a small map goes from 2,105 ns to 302 ns (7.0x).
+- `Cache.PersistentTerm` now hands out the stored term itself on every read, restoring the zero-copy property the adapter exists for.
+
+## Features
+
+- feat: added the optional `c:Cache.native_term_storage?/1` callback, letting an adapter declare that it stores Erlang terms natively. It is resolved at compile time, so there is no runtime branch on the read or write path. The callback is optional and defaults to encoding, so third-party adapters keep their current behaviour unchanged.
+
+## Bug Fixes
+
+- fix: `:compression_level` is reachable. It was unusable on every path — no adapter declares it, so `NimbleOptions` rejected it on compile-time adapter opts, and it resolved to `nil` before it could reach the encoder otherwise. It is now an option on the `use Cache` line (`compression_level: 6`), it is taken off the adapter opts before they are validated so the `opts: [compression_level: 6]` spelling works too, and it is never handed to the adapter. Setting it forces encoding on adapters that hold terms natively — asking for compression is asking for bytes. A cache using a strategy adapter raises at compile time rather than ignoring the option.
+- fix: `Cache.ConCache.get_or_store/3` followed by `get/1` no longer raises. `get_or_store/3` writes through ConCache directly, bypassing the encode in `put/3`, so the matching `get/1` tried to `binary_to_term/1` a raw term.
+- fix: a binary value wrapped in braces but not valid JSON (eg `"{oops}"`) no longer raises `Jason.DecodeError` on read. `Cache.TermEncoder.decode/1` used `Jason.decode!/1`, and now falls back to returning the binary unchanged.
+- fix: raw `Cache.ETS` operations (`match_object/1`, `select/1`, `tab2list/0`, `foldl/2`) now see the terms that were `put`, rather than the opaque encoded binaries they used to return.
+- fix: caching a JSON string hands back the string. `encode/2` stored a brace-wrapped binary unencoded, so `decode/1` had to guess what it was looking at — `put(:k, ~s({"a": 1}))` followed by `get(:k)` returned `%{"a" => 1}`, a `String` in and a `Map` out. Binaries are now always run through `:erlang.term_to_binary/1`, and `decode/1` keys off the external term format version byte rather than the shape of the payload, so nothing is guessed.
+- fix: `decode/1` no longer raises on a binary that is not an encoded term. It used to reach `:erlang.binary_to_term/1` for anything that was not digits or brace-wrapped, which raised `ArgumentError` on a value written into the store by something other than this library.
+
+## Breaking Changes
+
+- Values held by native-term adapters are now stored as terms rather than encoded binaries. This is not observable through `get/1`, `put/3` and `delete/1`, which round-trip exactly as before. It is observable if you read the underlying store directly (`:ets.lookup/2`, `:persistent_term.get/1`, `ConCache.get/2`) or through the raw ETS API — those now return terms, which is what they were always meant to return.
+- `Cache.DETS` is unchanged and still encodes, so existing `.dets` files stay readable. `Cache.ETS` with `:rehydration_path` also still encodes, so existing table dumps stay loadable.
+- `Cache.HashRing`, and `Cache.MultiLayer` under `broadcast_mode: :replicate`, also still encode. Those strategies hand the stored value to another node, so a rolling deploy has 0.4.x and 0.5.x reading each other's writes for the same key and they have to agree on the representation. Their wire format is unchanged from 0.4.x and a mixed-version cluster is safe.
+- An in-memory cache populated by an older version and read by this one would return raw binaries, but ETS, Agent, PersistentTerm and ConCache do not survive a restart, and every representation that outlives a node — disk, Redis, another node — is still encoded, so there is no upgrade path on which that can happen.
+- A brace-wrapped or all-digit binary is now stored encoded rather than raw. Keys written by an earlier version are not in external term format, so they still decode the way they always did: a raw JSON string in Redis reads back as a map, a raw digit string as an integer. Only values written from this version on are type-stable. Code that was reading those keys out of Redis with another tool and expecting readable JSON gets an encoded term instead — write JSON through `json_set/3` (RedisJSON), which is a separate path and unchanged.
+
 # 0.4.9
 
 ## Performance

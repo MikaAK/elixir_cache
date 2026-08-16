@@ -33,6 +33,22 @@ defmodule Cache do
               ErrorMessage.t_ok_res()
   @callback delete(cache_name :: atom, key :: atom | String.t()) :: ErrorMessage.t_ok_res()
 
+  @doc """
+  Returns true when the adapter stores Erlang terms natively, given its resolved options.
+
+  Adapters that hold terms in memory (`Cache.ETS`, `Cache.Agent`, `Cache.PersistentTerm`,
+  `Cache.ConCache`, `Cache.Counter`) do not need values to be run through
+  `:erlang.term_to_binary/1` first — doing so costs a full encode on every write and a
+  full decode on every read while buying nothing. Adapters that store bytes on the wire
+  (`Cache.Redis`) or that own a durable on-disk format (`Cache.DETS`) must return `false`.
+
+  This callback is optional. Adapters that do not implement it are assumed to need
+  encoding, which is what every adapter did before this callback existed.
+  """
+  @callback native_term_storage?(adapter_opts :: Keyword.t()) :: boolean()
+
+  @optional_callbacks native_term_storage?: 1
+
   defmacro __using__(opts) do
     sandbox_opt = Keyword.get(opts, :sandbox?, false)
 
@@ -96,7 +112,21 @@ defmodule Cache do
         adapter_opts = check_adapter_opts.(unquote(opts[:opts]))
 
         @adapter_opts adapter_opts
-        @compression_level if is_list(@adapter_opts), do: @adapter_opts[:compression_level]
+
+        # A strategy encodes inside the strategy module, through the adapter or the cache
+        # modules it wraps, so a `:compression_level` set here would never reach an
+        # encoder. Say that at compile time rather than quietly handing back uncompressed
+        # values.
+        if not is_nil(unquote(opts[:compression_level])) or
+             (is_list(@adapter_opts) and not is_nil(@adapter_opts[:compression_level])) do
+          raise ArgumentError, """
+          `:compression_level` is not supported on a cache using a strategy adapter.
+
+          Got: #{inspect(@cache_strategy_module)} in #{inspect(__MODULE__)}
+
+          Set it on the cache module or layer that does the storing instead.
+          """
+        end
 
         def cache_name, do: @cache_name
         def cache_adapter, do: @cache_adapter
@@ -283,10 +313,33 @@ defmodule Cache do
             pre_check_runtime_options.(adapter_opts)
         end
 
-        adapter_opts = if opts[:sandbox?], do: [], else: check_adapter_opts.(opts[:opts])
+        # `:compression_level` belongs to the encoder, not to the store, so it comes off
+        # the adapter opts before they are validated. No adapter declares it, and an
+        # adapter that forwards its opts to the store would choke on an option that was
+        # never meant for it.
+        {configured_compression_level, configured_adapter_opts} =
+          case opts[:opts] do
+            configured_adapter_opts when is_list(configured_adapter_opts) ->
+              Keyword.pop(configured_adapter_opts, :compression_level)
+
+            configured_adapter_opts ->
+              {nil, configured_adapter_opts}
+          end
+
+        adapter_opts = if opts[:sandbox?], do: [], else: check_adapter_opts.(configured_adapter_opts)
 
         @adapter_opts adapter_opts
-        @compression_level if is_list(@adapter_opts), do: @adapter_opts[:compression_level]
+        @compression_level opts[:compression_level] || configured_compression_level
+
+        # Resolved against the *configured* adapter and its *configured* opts rather than
+        # `@cache_adapter`/`@adapter_opts`, which are swapped out under `sandbox?: true`.
+        # A sandboxed cache must encode exactly like the adapter it stands in for, or a
+        # value would round-trip differently in test than in production.
+        #
+        # A compression level is an explicit request to compress, so it encodes even on an
+        # adapter that could have held the term as it is.
+        @cache_encode_terms? not is_nil(@compression_level) or
+                               Cache.TermEncoder.encoding_required?(opts[:adapter], opts[:opts])
 
         unquote(adapter_use_ast)
 
@@ -336,8 +389,18 @@ defmodule Cache do
           @cache_adapter.child_spec({@cache_name, adapter_options()})
         end
 
+        @compile {:inline, encode_value: 1, decode_value: 1}
+
+        if @cache_encode_terms? do
+          defp encode_value(value), do: Cache.TermEncoder.encode(value, @compression_level)
+          defp decode_value(value), do: Cache.TermEncoder.decode(value)
+        else
+          defp encode_value(value), do: value
+          defp decode_value(value), do: value
+        end
+
         def put(key, ttl \\ nil, value) do
-          value = Cache.TermEncoder.encode(value, @compression_level)
+          value = encode_value(value)
           key = maybe_sandbox_key(key)
 
           :telemetry.span(
@@ -372,7 +435,7 @@ defmodule Cache do
                     res
 
                   {:ok, value} ->
-                    {:ok, Cache.TermEncoder.decode(value)}
+                    {:ok, decode_value(value)}
 
                   other ->
                     other

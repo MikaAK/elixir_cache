@@ -27,6 +27,14 @@ defmodule Cache.PersistentTerm do
   @impl Cache
   def opts_definition, do: []
 
+  @doc """
+  `:persistent_term` exists to hand out zero-copy references to already-built terms.
+  Encoding a value into a binary and decoding it on every read defeats the entire
+  point of the adapter, so it never encodes.
+  """
+  @impl Cache
+  def native_term_storage?(_opts), do: true
+
   @impl Cache
   def start_link(opts) do
     Task.start_link(fn ->

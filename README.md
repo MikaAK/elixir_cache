@@ -51,6 +51,27 @@ MyModule.put("key", "value") #> :ok
 MyModule.get("key") #> {:ok, "value"}
 ```
 
+### Compression
+
+Values are serialised with `:erlang.term_to_binary/1` for adapters that cannot hold an
+Erlang term. Pass a `compression_level` (`1..9`) to compress them on the way in:
+
+```elixir
+defmodule MyModule do
+  use Cache,
+    adapter: Cache.Redis,
+    name: :my_name,
+    compression_level: 6,
+    opts: [...opts]
+end
+```
+
+The level belongs to the encoder rather than to the store, so it is never handed to the
+adapter. Setting it also forces encoding on adapters that would otherwise hold the term
+as it is (`Cache.ETS`, `Cache.Agent`, `Cache.PersistentTerm`, `Cache.ConCache`) — asking
+for compression is asking for bytes. It is not supported on a cache using a strategy
+adapter, which encodes through what it wraps; set it there instead.
+
 ## Adapters
 - `Cache.Agent` - Simple agent based caching
 - `Cache.DETS`  - Disk persisted caching with [dets](https://www.erlang.org/doc/man/dets.html)

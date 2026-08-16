@@ -37,11 +37,36 @@ When you `use Cache` in your module, the macro:
 
 ## Term Encoding and Compression
 
-ElixirCache includes internal term encoding functionality that handles serialization and deserialization of Elixir terms. This allows you to store complex Elixir data structures in any cache backend. The encoding system:
+ElixirCache lets you store any Elixir term in any backend. How a term gets there depends on
+what the backend can actually hold, and that is decided per adapter rather than globally.
 
-1. Uses Erlang's term_to_binary for efficient serialization
-2. Applies configurable compression to reduce memory usage
-3. Automatically handles decoding when retrieving values
+Adapters that store Erlang terms natively — `Cache.ETS`, `Cache.Agent`, `Cache.PersistentTerm`,
+`Cache.ConCache`, `Cache.Counter` — receive the term as-is. Serialising it first would cost a
+`term_to_binary/1` on every write and a `binary_to_term/1` on every read while buying nothing,
+and on a hot read path that decode dominates the lookup it is attached to.
+
+Adapters that cannot hold a term serialise it with `:erlang.term_to_binary/1`:
+
+- `Cache.Redis` stores bytes on the wire, so terms must be serialised before they leave the node.
+- `Cache.DETS` owns a durable on-disk format, and so does `Cache.ETS` when configured with
+  `:rehydration_path`. Both keep encoding so that files written by earlier versions stay readable.
+- `Cache.HashRing` rpcs the stored value to the node that owns the key, and `Cache.MultiLayer`
+  under `broadcast_mode: :replicate` pushes it to the other nodes' layers. Both keep encoding:
+  during a rolling deploy two versions of this library read each other's writes for the same
+  key, so the representation has to stay stable across versions.
+
+Setting `:compression_level` forces encoding on any adapter — an explicit request to compress
+is honoured even when the backend could have held the term directly.
+
+Adapters declare this through the optional `c:Cache.native_term_storage?/1` callback. It is
+resolved once at compile time, so there is no runtime branch on the read or write path.
+The callback is optional and defaults to encoding, so third-party adapters are unaffected.
+
+An encoded value is read back by its format rather than by its shape. External term format
+always begins with the version byte `131` and every value this library encodes is in it, so
+decoding never guesses at a payload. A stored value that is *not* in that format was written
+either by an older version or by something other than this library, and keeps the reading it
+has always had — a raw JSON string decodes to a map, a raw digit string to an integer.
 
 ## Sandboxing for Tests
 

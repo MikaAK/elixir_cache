@@ -61,6 +61,15 @@ defmodule Cache.ConCache do
   @impl Cache
   def opts_definition, do: @opts_definition
 
+  @doc """
+  ConCache is ETS-backed and stores terms. Encoding is pure overhead, and it made
+  `get_or_store/3` unusable — that function writes through ConCache directly, bypassing
+  the encode in `Cache.put/3`, so a later `get/1` tried to `binary_to_term/1` a raw term
+  and raised.
+  """
+  @impl Cache
+  def native_term_storage?(_opts), do: true
+
   @impl Cache
   def start_link(opts) do
     cache_opts =
