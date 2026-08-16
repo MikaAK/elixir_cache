@@ -4,10 +4,17 @@
 
 - perf: values are no longer run through `:erlang.term_to_binary/1` for adapters that store Erlang terms natively (`Cache.ETS`, `Cache.Agent`, `Cache.PersistentTerm`, `Cache.ConCache`, `Cache.Counter`). The encode/decode round trip was pure overhead on those adapters, and the decode dominated the lookup it was attached to. On a 500k-entry ETS table, `get/1` of a ~10KB body drops from **29,981 ns to 6,211 ns (4.8x)** and `put/2` from **23,542 ns to 10,804 ns (2.2x)**. The win holds across payload sizes — a small map goes from 2,105 ns to 302 ns (7.0x).
 - `Cache.PersistentTerm` now hands out the stored term itself on every read, restoring the zero-copy property the adapter exists for.
+- `Cache.RefreshAhead` resolves encoding against the adapter it wraps, so a RefreshAhead over `Cache.ETS` stops encoding too. Wrapping a byte-storing adapter is unchanged.
 
 ## Features
 
+- feat(multi_layer): cross-node layer coherence. A node-local fast layer went stale on every node except the writer — `put/3` wrote the layers on the calling node only, and `delete/1` was the only cross-layer remover, so there was no way to invalidate another node's L1 without also dropping the shared layer. Each `Cache.MultiLayer` cache now runs a per-node `Cache.MultiLayer.Coordinator` that joins a `:pg` group named after the cache, which doubles as the registry of nodes holding it. With `broadcast_mode` set, a successful write notifies every other member, which applies it to its own `broadcast_layers`:
+  - `:invalidate` — remote nodes drop the key from their local layers and lazily re-read through the shared layer. Messages are key-sized, so this is the choice for large values.
+  - `:replicate` — remote nodes write the new value immediately. That is a full value copy per member, so it is for small values only.
+
+  Delivery is best-effort — sends to `:pg` members, no acks — so `backfill_ttl` and the layer TTLs remain the correctness floor for a member that misses a message. The `:pg` scope is started unlinked so it does not die with whichever coordinator started it, and each coordinator re-joins when it sees the scope go down.
 - feat: added the optional `c:Cache.native_term_storage?/1` callback, letting an adapter declare that it stores Erlang terms natively. It is resolved at compile time, so there is no runtime branch on the read or write path. The callback is optional and defaults to encoding, so third-party adapters keep their current behaviour unchanged.
+- feat: Elixir 1.20 support. The `use Cache` macro now emits a single `adapter_options!/1` clause matching the configured adapter's opts shape rather than a clause per shape plus a catch-all, and the generated `get/1` drops the `{:error, _}` branches that 1.20's type checker proves unreachable. Both were dead-clause warnings under `--warnings-as-errors`.
 
 ## Bug Fixes
 
@@ -25,6 +32,14 @@
 - `Cache.HashRing`, and `Cache.MultiLayer` under `broadcast_mode: :replicate`, also still encode. Those strategies hand the stored value to another node, so a rolling deploy has 0.4.x and 0.5.x reading each other's writes for the same key and they have to agree on the representation. Their wire format is unchanged from 0.4.x and a mixed-version cluster is safe.
 - An in-memory cache populated by an older version and read by this one would return raw binaries, but ETS, Agent, PersistentTerm and ConCache do not survive a restart, and every representation that outlives a node — disk, Redis, another node — is still encoded, so there is no upgrade path on which that can happen.
 - A brace-wrapped or all-digit binary is now stored encoded rather than raw. Keys written by an earlier version are not in external term format, so they still decode the way they always did: a raw JSON string in Redis reads back as a map, a raw digit string as an integer. Only values written from this version on are type-stable. Code that was reading those keys out of Redis with another tool and expecting readable JSON gets an encoded term instead — write JSON through `json_set/3` (RedisJSON), which is a separate path and unchanged.
+- The minimum Elixir version is now `~> 1.15`, up from `~> 1.11`.
+
+## Chores
+
+- chore(deps): `:credo` 1.7.13 -> 1.7.18. 1.7.13 crashes on Elixir 1.20's sigil token format. The newer Credo flagged one `length/1 > 0` check, rewritten as `!== []`.
+- chore(deps): dropped the `:faker` test dependency, which does not compile on Elixir 1.20 — a raw U+0085 byte is a hard syntax error there. It backed three random-string helpers, now a small module under `test/support`.
+- chore(mix): moved `:preferred_cli_env` into `def cli/0`, where Elixir 1.20 expects it.
+- fix(test): `Cache.RefreshAhead`'s "global lock prevents refresh while lock is held" test drains the in-flight refresh task while the lock is still held. The task raced the `:global.del_lock/2` on the next line, could acquire the freed lock and refresh the value the following assertion expected to be untouched. The race predated this release; making `get/1` faster widened the window enough for CI to hit it.
 
 # 0.4.9
 
