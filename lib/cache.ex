@@ -112,7 +112,21 @@ defmodule Cache do
         adapter_opts = check_adapter_opts.(unquote(opts[:opts]))
 
         @adapter_opts adapter_opts
-        @compression_level if is_list(@adapter_opts), do: @adapter_opts[:compression_level]
+
+        # A strategy encodes inside the strategy module, through the adapter or the cache
+        # modules it wraps, so a `:compression_level` set here would never reach an
+        # encoder. Say that at compile time rather than quietly handing back uncompressed
+        # values.
+        if not is_nil(unquote(opts[:compression_level])) or
+             (is_list(@adapter_opts) and not is_nil(@adapter_opts[:compression_level])) do
+          raise ArgumentError, """
+          `:compression_level` is not supported on a cache using a strategy adapter.
+
+          Got: #{inspect(@cache_strategy_module)} in #{inspect(__MODULE__)}
+
+          Set it on the cache module or layer that does the storing instead.
+          """
+        end
 
         def cache_name, do: @cache_name
         def cache_adapter, do: @cache_adapter
@@ -299,16 +313,33 @@ defmodule Cache do
             pre_check_runtime_options.(adapter_opts)
         end
 
-        adapter_opts = if opts[:sandbox?], do: [], else: check_adapter_opts.(opts[:opts])
+        # `:compression_level` belongs to the encoder, not to the store, so it comes off
+        # the adapter opts before they are validated. No adapter declares it, and an
+        # adapter that forwards its opts to the store would choke on an option that was
+        # never meant for it.
+        {configured_compression_level, configured_adapter_opts} =
+          case opts[:opts] do
+            configured_adapter_opts when is_list(configured_adapter_opts) ->
+              Keyword.pop(configured_adapter_opts, :compression_level)
+
+            configured_adapter_opts ->
+              {nil, configured_adapter_opts}
+          end
+
+        adapter_opts = if opts[:sandbox?], do: [], else: check_adapter_opts.(configured_adapter_opts)
 
         @adapter_opts adapter_opts
-        @compression_level if is_list(@adapter_opts), do: @adapter_opts[:compression_level]
+        @compression_level opts[:compression_level] || configured_compression_level
 
         # Resolved against the *configured* adapter and its *configured* opts rather than
         # `@cache_adapter`/`@adapter_opts`, which are swapped out under `sandbox?: true`.
         # A sandboxed cache must encode exactly like the adapter it stands in for, or a
         # value would round-trip differently in test than in production.
-        @cache_encode_terms? Cache.TermEncoder.encoding_required?(opts[:adapter], opts[:opts])
+        #
+        # A compression level is an explicit request to compress, so it encodes even on an
+        # adapter that could have held the term as it is.
+        @cache_encode_terms? not is_nil(@compression_level) or
+                               Cache.TermEncoder.encoding_required?(opts[:adapter], opts[:opts])
 
         unquote(adapter_use_ast)
 
