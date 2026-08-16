@@ -140,34 +140,33 @@ defmodule Cache.TermEncoder do
     )
   end
 
+  # An integer is handed to the store as itself, so a store that understands numbers
+  # still sees one. `decode/1` reads it back through the legacy branch below.
   def encode(term, _) when is_integer(term) do
     term
-  end
-
-  def encode(term, _) when is_binary(term) do
-    if to_string(term) =~ ~r/^{.*}$/ do
-      term
-    else
-      :erlang.term_to_binary(term)
-    end
   end
 
   def encode(term, _compression_level) do
     :erlang.term_to_binary(term)
   end
 
+  # External term format always starts with the version byte 131, and every value this
+  # library encodes goes through `:erlang.term_to_binary/1`, so the first byte is the
+  # whole decision. Nothing has to be guessed from the shape of the payload.
+  def decode(<<131, _rest::binary>> = encoded) do
+    encoded
+    |> :erlang.binary_to_term()
+    |> maybe_decode_binary_struct_error()
+  end
+
+  # Not written by this version of the encoder: a value stored before binaries were
+  # encoded unconditionally, or one written straight into the store by something else.
+  # Both are read the way they always were.
   def decode(binary) when is_binary(binary) do
     cond do
-      binary =~ ~r/^\d+$/ ->
-        String.to_integer(binary)
-
-      binary =~ ~r/^{.*}$/ ->
-        decode_json(binary)
-
-      true ->
-        binary
-        |> :erlang.binary_to_term()
-        |> maybe_decode_binary_struct_error
+      binary =~ ~r/^\d+$/ -> String.to_integer(binary)
+      binary =~ ~r/^{.*}$/ -> decode_json(binary)
+      true -> binary
     end
   end
 

@@ -62,6 +62,12 @@ Adapters declare this through the optional `c:Cache.native_term_storage?/1` call
 resolved once at compile time, so there is no runtime branch on the read or write path.
 The callback is optional and defaults to encoding, so third-party adapters are unaffected.
 
+An encoded value is read back by its format rather than by its shape. External term format
+always begins with the version byte `131` and every value this library encodes is in it, so
+decoding never guesses at a payload. A stored value that is *not* in that format was written
+either by an older version or by something other than this library, and keeps the reading it
+has always had — a raw JSON string decodes to a map, a raw digit string to an integer.
+
 ## Sandboxing for Tests
 
 A unique feature of ElixirCache is its sandboxing capability for tests. When you enable sandboxing:
