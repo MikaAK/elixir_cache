@@ -14,6 +14,8 @@
 - fix: `Cache.ConCache.get_or_store/3` followed by `get/1` no longer raises. `get_or_store/3` writes through ConCache directly, bypassing the encode in `put/3`, so the matching `get/1` tried to `binary_to_term/1` a raw term.
 - fix: a binary value wrapped in braces but not valid JSON (eg `"{oops}"`) no longer raises `Jason.DecodeError` on read. `Cache.TermEncoder.decode/1` used `Jason.decode!/1`, and now falls back to returning the binary unchanged.
 - fix: raw `Cache.ETS` operations (`match_object/1`, `select/1`, `tab2list/0`, `foldl/2`) now see the terms that were `put`, rather than the opaque encoded binaries they used to return.
+- fix: caching a JSON string hands back the string. `encode/2` stored a brace-wrapped binary unencoded, so `decode/1` had to guess what it was looking at — `put(:k, ~s({"a": 1}))` followed by `get(:k)` returned `%{"a" => 1}`, a `String` in and a `Map` out. Binaries are now always run through `:erlang.term_to_binary/1`, and `decode/1` keys off the external term format version byte rather than the shape of the payload, so nothing is guessed.
+- fix: `decode/1` no longer raises on a binary that is not an encoded term. It used to reach `:erlang.binary_to_term/1` for anything that was not digits or brace-wrapped, which raised `ArgumentError` on a value written into the store by something other than this library.
 
 ## Breaking Changes
 
@@ -21,6 +23,7 @@
 - `Cache.DETS` is unchanged and still encodes, so existing `.dets` files stay readable. `Cache.ETS` with `:rehydration_path` also still encodes, so existing table dumps stay loadable.
 - `Cache.HashRing`, and `Cache.MultiLayer` under `broadcast_mode: :replicate`, also still encode. Those strategies hand the stored value to another node, so a rolling deploy has 0.4.x and 0.5.x reading each other's writes for the same key and they have to agree on the representation. Their wire format is unchanged from 0.4.x and a mixed-version cluster is safe.
 - An in-memory cache populated by an older version and read by this one would return raw binaries, but ETS, Agent, PersistentTerm and ConCache do not survive a restart, and every representation that outlives a node — disk, Redis, another node — is still encoded, so there is no upgrade path on which that can happen.
+- A brace-wrapped or all-digit binary is now stored encoded rather than raw. Keys written by an earlier version are not in external term format, so they still decode the way they always did: a raw JSON string in Redis reads back as a map, a raw digit string as an integer. Only values written from this version on are type-stable. Code that was reading those keys out of Redis with another tool and expecting readable JSON gets an encoded term instead — write JSON through `json_set/3` (RedisJSON), which is a separate path and unchanged.
 
 # 0.4.9
 
