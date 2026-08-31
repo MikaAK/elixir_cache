@@ -3,12 +3,19 @@ defmodule Cache.Redis.Global do
 
   @default_scan_count 10
 
+  # Options accepted by `Cache.Redis`'s config but meaningful only to poolboy
+  # and `Redix.start_link/2`. Redix's command functions validate their options
+  # with NimbleOptions and raise on anything they do not know, so these have to
+  # be dropped before a command runs — otherwise every command on a pool
+  # configured with `size:` crashes.
+  @non_command_opts [:uri, :size, :max_overflow, :strategy]
+
   def cache_key(pool_name, key) do
     "#{pool_name}:#{key}"
   end
 
   def command(pool_name, command, opts \\ []) do
-    opts = Keyword.delete(opts, :uri)
+    opts = Keyword.drop(opts, @non_command_opts)
 
     :poolboy.transaction(pool_name, fn pid ->
       pid |> Redix.command(command, opts) |> handle_response
@@ -16,7 +23,7 @@ defmodule Cache.Redis.Global do
   end
 
   def command!(pool_name, command, opts \\ []) do
-    opts = Keyword.delete(opts, :uri)
+    opts = Keyword.drop(opts, @non_command_opts)
 
     :poolboy.transaction(pool_name, fn pid ->
       Redix.command!(pid, command, opts)
@@ -24,7 +31,7 @@ defmodule Cache.Redis.Global do
   end
 
   def pipeline(pool_name, commands, opts \\ []) do
-    opts = Keyword.delete(opts, :uri)
+    opts = Keyword.drop(opts, @non_command_opts)
 
     :poolboy.transaction(pool_name, fn pid ->
       pid |> Redix.pipeline(commands, opts) |> handle_response
@@ -32,7 +39,7 @@ defmodule Cache.Redis.Global do
   end
 
   def pipeline!(pool_name, commands, opts \\ []) do
-    opts = Keyword.delete(opts, :uri)
+    opts = Keyword.drop(opts, @non_command_opts)
 
     :poolboy.transaction(pool_name, fn pid ->
       Redix.pipeline!(pid, commands, opts)
