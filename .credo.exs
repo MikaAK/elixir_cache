@@ -42,7 +42,9 @@ allowed_imports = [
         {BlitzCredoChecks.SetWarningsAsErrorsInTest, false},
         {BlitzCredoChecks.DocsBeforeSpecs, []},
         {BlitzCredoChecks.DoctestIndent, []},
-        {BlitzCredoChecks.NoAsyncFalse, []},
+        # Superseded by MikaCredoRules.AsyncTrueRequired: the choice must be explicit, and a
+        # deliberate async: false is allowed.
+        {BlitzCredoChecks.NoAsyncFalse, false},
         {BlitzCredoChecks.NoDSLParentheses, []},
         {BlitzCredoChecks.NoIsBitstring, []},
         {BlitzCredoChecks.StrictComparison, false},

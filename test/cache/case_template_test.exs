@@ -82,8 +82,11 @@ defmodule Cache.CaseTemplateTest do
 
 end
 
+# IsolationTest and ExtraCachesTest share the TestCache sandbox Agent, and
+# Cache.SandboxRegistry.start/1 adopts an already-running Agent into the calling test's
+# supervisor, so one test's teardown would kill the other's cache if they ran concurrently.
 defmodule Cache.CaseTemplateTest.IsolationTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
   use Cache.CaseTemplateTest.TestCacheCaseTemplate
 
   alias Cache.CaseTemplateTest.TestCache
@@ -100,7 +103,7 @@ defmodule Cache.CaseTemplateTest.IsolationTest do
 end
 
 defmodule Cache.CaseTemplateTest.ExtraCachesTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
   use Cache.CaseTemplateTest.TestCaseCaseWithExtra, caches: [Cache.CaseTemplateTest.TestCache2]
 
   alias Cache.CaseTemplateTest.TestCache
