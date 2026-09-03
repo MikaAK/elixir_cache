@@ -55,6 +55,18 @@ defmodule Cache.ConCacheTest do
     %{key: key}
   end
 
+  describe "adapter calls after the ConCache table is gone" do
+    test "put and delete return an error tuple instead of raising" do
+      cache_name = :"orphan_con_cache_#{System.unique_integer([:positive])}"
+      start_supervised!({ConCache, name: cache_name, ttl_check_interval: false})
+      :ets.delete(ConCache.ets(cache_name))
+
+      assert {:error, %ErrorMessage{code: :internal_server_error}} = Cache.ConCache.put(cache_name, :key, "value")
+      assert {:error, %ErrorMessage{code: :internal_server_error}} = Cache.ConCache.put(cache_name, :key, 1_000, "value")
+      assert {:error, %ErrorMessage{code: :internal_server_error}} = Cache.ConCache.delete(cache_name, :key)
+    end
+  end
+
   describe "&get_or_store/3" do
     test "get/set", %{key: key} do
       assert "test_value" === ConCacheAdapter.get_or_store(key, @ttl, fn -> "test_value" end)
