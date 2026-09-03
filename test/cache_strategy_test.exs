@@ -45,9 +45,18 @@ defmodule CacheStrategyTest do
       opts: []
   end
 
+  defmodule TestCache.FetchLayer do
+    use Cache, adapter: Cache.ETS, name: :test_strategy_fetch_layer, opts: []
+  end
+
+  # Was `[Cache.ETS]` — an adapter, which `validate_layers!/2` now rejects.
+  # Worth recording why that mattered rather than just fixing it: an adapter
+  # layer silently no-opped, so this cascade had ZERO working layers and
+  # `on_fetch` fired on a miss that was guaranteed rather than observed. The
+  # test passed for the wrong reason, and could not have failed.
   defmodule TestCache.MultiLayerFetch do
     use Cache,
-      adapter: {Cache.MultiLayer, [Cache.ETS]},
+      adapter: {Cache.MultiLayer, [TestCache.FetchLayer]},
       name: :test_strategy_multi_layer_fetch,
       opts: [on_fetch: &__MODULE__.fetch/1]
 
@@ -316,7 +325,7 @@ defmodule CacheStrategyTest do
         type: :supervisor,
         start:
           {Cache, :start_link,
-           [[TestCache.MultiLayerFetch], [name: :multi_layer_fetch_sup]]}
+           [[TestCache.FetchLayer, TestCache.MultiLayerFetch], [name: :multi_layer_fetch_sup]]}
       })
 
       Process.sleep(50)
