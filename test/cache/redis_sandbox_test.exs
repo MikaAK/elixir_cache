@@ -45,11 +45,11 @@ defmodule Cache.RedisSandboxTest do
   end
 
   describe "&command/2" do
-    test "PING" do
+    test "ping" do
       assert {:ok, "PONG"} === RedisSandboxCache.command(["PING"])
     end
 
-    test "GET / EXISTS / DEL against keys written through the cache API" do
+    test "get / exists / del against keys written through the cache API" do
       assert :ok === RedisSandboxCache.put("key", "value")
 
       # Raw GET returns the stored binary undecoded, exactly like Redis would —
