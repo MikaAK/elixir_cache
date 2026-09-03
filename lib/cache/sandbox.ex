@@ -397,21 +397,65 @@ defmodule Cache.Sandbox do
 
   # SECTION: Redis compatibility
 
-  def pipeline(_cache_name, _commands, _opts) do
-    raise "Not Implemented"
+  # Raw command passthrough. The sandbox is a term map, not a Redis server, so
+  # only the commands whose semantics map directly onto that map are supported;
+  # anything else is a `:not_implemented` error rather than a raise, so the
+  # `use Cache` wrappers keep a real return type and callers see the same
+  # `{:error, %ErrorMessage{}}` shape the Redis adapter produces on failure.
+  def pipeline(cache_name, commands, opts) do
+    with {:ok, replies} <- run_commands(cache_name, commands, opts) do
+      {:ok, Enum.reverse(replies)}
+    end
   end
 
-  def pipeline!(_cache_name, _commands, _opts) do
-    raise "Not Implemented"
+  def pipeline!(cache_name, commands, opts) do
+    case pipeline(cache_name, commands, opts) do
+      {:ok, replies} -> replies
+      {:error, %ErrorMessage{message: message}} -> raise message
+    end
   end
 
-  def command(_cache_name, _command, _opts) do
-    raise "Not Implemented"
+  def command(_cache_name, ["PING"], _opts), do: {:ok, "PONG"}
+
+  def command(cache_name, ["GET", key], _opts) do
+    scoped_agent_get(cache_name, fn sub -> {:ok, Map.get(sub, key)} end)
   end
 
-  def command!(_cache_name, _command, _opts) do
-    raise "Not Implemented"
+  def command(cache_name, ["EXISTS", key], _opts) do
+    scoped_agent_get(cache_name, fn sub -> {:ok, boolean_to_integer(Map.has_key?(sub, key))} end)
   end
+
+  def command(cache_name, ["DEL", key], _opts) do
+    scoped_agent_get_and_update(cache_name, fn sub ->
+      {{:ok, boolean_to_integer(Map.has_key?(sub, key))}, Map.delete(sub, key)}
+    end)
+  end
+
+  def command(_cache_name, [command | _args], _opts) do
+    {:error,
+     ErrorMessage.not_implemented("#{command} is not implemented by the cache sandbox", %{
+       command: command
+     })}
+  end
+
+  def command!(cache_name, command, opts) do
+    case command(cache_name, command, opts) do
+      {:ok, reply} -> reply
+      {:error, %ErrorMessage{message: message}} -> raise message
+    end
+  end
+
+  defp run_commands(cache_name, commands, opts) do
+    Enum.reduce_while(commands, {:ok, []}, fn command, {:ok, replies} ->
+      case command(cache_name, command, opts) do
+        {:ok, reply} -> {:cont, {:ok, [reply | replies]}}
+        {:error, _} = error -> {:halt, error}
+      end
+    end)
+  end
+
+  defp boolean_to_integer(true), do: 1
+  defp boolean_to_integer(false), do: 0
 
   def scan(cache_name, scan_opts, _opts) do
     match = scan_opts[:match] || "*"
@@ -1171,12 +1215,22 @@ defmodule Cache.Sandbox do
     {Enum.reverse(results), continuation}
   end
 
-  def smembers(_cache_name, _key, _opts) do
-    raise "Not Implemented"
+  # SECTION: set API
+
+  # Sets are stored as MapSets under the key. Like Redis, SMEMBERS of a
+  # missing key is the empty set and SADD returns how many members were new.
+  def smembers(cache_name, key, _opts) do
+    scoped_agent_get(cache_name, fn sub ->
+      {:ok, sub |> Map.get(key, MapSet.new()) |> MapSet.to_list()}
+    end)
   end
 
-  def sadd(_cache_name, _key, _value, _opts) do
-    raise "Not Implemented"
+  def sadd(cache_name, key, value, _opts) do
+    scoped_agent_get_and_update(cache_name, fn sub ->
+      set = Map.get(sub, key, MapSet.new())
+      added = boolean_to_integer(not MapSet.member?(set, value))
+      {{:ok, added}, Map.put(sub, key, MapSet.put(set, value))}
+    end)
   end
 
   # SECTION: internal helpers
