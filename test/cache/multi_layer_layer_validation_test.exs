@@ -70,7 +70,7 @@ defmodule Cache.MultiLayerLayerValidationTest do
       end
     end
 
-    test "POSITIVE CONTROL: a list of real cache modules is accepted" do
+    test "positive control: a list of real cache modules is accepted" do
       assert %{id: _id, start: _start} =
                Cache.MultiLayer.child_spec({:accepts_modules, [FastLayer, SlowLayer], []})
     end
