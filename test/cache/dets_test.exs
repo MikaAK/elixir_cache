@@ -10,8 +10,6 @@ defmodule Cache.DETSTest do
 
   setup do
     start_supervised({Cache, [TestDETSCache]})
-    Process.sleep(100)
-
     on_exit(fn ->
       File.rm("/tmp/test_dets_cache.dets")
     end)

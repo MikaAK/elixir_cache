@@ -10,7 +10,6 @@ defmodule Cache.CounterTest do
 
   setup do
     start_supervised({Cache, [TestCounterCache]})
-    Process.sleep(50)
     :ok
   end
 

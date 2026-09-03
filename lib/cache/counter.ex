@@ -107,8 +107,8 @@ defmodule Cache.Counter do
     parent = self()
     ready_ref = make_ref()
 
-    {:ok, pid} =
-      Task.start_link(fn ->
+    pid =
+      spawn_link(fn ->
         cache_name = opts[:table_name]
         initial_size = opts[:initial_size] || 1
         counters_opts = if opts[:write_concurrency], do: [:atomics, :write_concurrency], else: [:atomics]
@@ -148,7 +148,7 @@ defmodule Cache.Counter do
       {:error, ErrorMessage.bad_request("integer key #{key} is out of bounds (initial_size: #{size})", %{cache: cache_name, key: key})}
     end
   rescue
-    exception ->
+    exception in ArgumentError ->
       {:error, ErrorMessage.internal_server_error(Exception.message(exception), %{cache: cache_name, key: key})}
   end
 
@@ -166,7 +166,7 @@ defmodule Cache.Counter do
     :counters.add(ref, compute_index(ref, key), value)
     :ok
   rescue
-    exception ->
+    exception in ArgumentError ->
       {:error, ErrorMessage.internal_server_error(Exception.message(exception), %{cache: cache_name, key: key})}
   end
 
@@ -184,7 +184,7 @@ defmodule Cache.Counter do
     :counters.put(ref, compute_index(ref, key), 0)
     :ok
   rescue
-    exception ->
+    exception in ArgumentError ->
       {:error, ErrorMessage.internal_server_error(Exception.message(exception), %{cache: cache_name, key: key})}
   end
 
@@ -194,7 +194,7 @@ defmodule Cache.Counter do
     :counters.add(ref, compute_index(ref, key), step)
     :ok
   rescue
-    exception ->
+    exception in ArgumentError ->
       {:error, ErrorMessage.internal_server_error(Exception.message(exception), %{cache: cache_name, key: key})}
   end
 
@@ -204,7 +204,7 @@ defmodule Cache.Counter do
     :counters.add(ref, compute_index(ref, key), -step)
     :ok
   rescue
-    exception ->
+    exception in ArgumentError ->
       {:error, ErrorMessage.internal_server_error(Exception.message(exception), %{cache: cache_name, key: key})}
   end
 

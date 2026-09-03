@@ -15,8 +15,6 @@ defmodule Cache.HashRingTest do
       start: {Cache, :start_link, [[TestHashRingCache], [name: :hash_ring_cache_sup]]}
     })
 
-    Process.sleep(50)
-
     :ok
   end
 
@@ -150,8 +148,6 @@ defmodule Cache.HashRingTest do
 
       Cache.HashRing.get(cache_name, "repair:dedup_key", Cache.ETS, rpc_module: rpc_module)
 
-      Process.sleep(50)
-
       assert Agent.get(call_count, & &1) === 1
     end
 
@@ -200,10 +196,11 @@ defmodule Cache.HashRingTest do
 
       Cache.HashRing.get(cache_name, "repair:migrate_key2", Cache.ETS, rpc_module: rpc_module)
 
-      Process.sleep(100)
-
-      calls = Agent.get(calls_agent, & &1)
-      assert Enum.any?(calls, fn {_node, func} -> func === :delete end)
+      assert Cache.Wait.until(fn ->
+               calls_agent
+               |> Agent.get(& &1)
+               |> Enum.any?(fn {_node, func} -> func === :delete end)
+             end)
     end
   end
 
@@ -283,7 +280,7 @@ defmodule Cache.HashRingTest do
       [self() | callers ++ ancestors]
       |> Enum.filter(&is_pid/1)
       |> Enum.find(fn pid ->
-        :persistent_term.get({Cache.HashRingTest.StubRpc, pid}, nil) !== nil
+        not is_nil(:persistent_term.get({Cache.HashRingTest.StubRpc, pid}, nil))
       end)
     end
   end

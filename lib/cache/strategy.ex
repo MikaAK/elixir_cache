@@ -82,16 +82,16 @@ defmodule Cache.Strategy do
     module
     |> module_behaviours()
     |> Enum.member?(Cache.Strategy)
-  rescue
-    _ -> false
   end
 
+  # module_info/1 raises UndefinedFunctionError for an unknown module and ArgumentError for
+  # a non-atom.
   defp module_behaviours(module) do
     module
     |> :erlang.apply(:module_info, [:attributes])
     |> Keyword.get_values(:behaviour)
     |> List.flatten()
   rescue
-    _ -> []
+    _ in [UndefinedFunctionError, ArgumentError] -> []
   end
 end

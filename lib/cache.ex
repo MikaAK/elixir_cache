@@ -153,11 +153,11 @@ defmodule Cache do
             defp adapter_options!({module, fun, args}), do: apply(module, fun, args)
 
           match?({_, _}, @adapter_opts) ->
-            defp adapter_options!({app, key}), do: Application.fetch_env!(app, key)
+            defp adapter_options!({app, key}), do: Cache.Config.fetch_env!(app, key)
 
           is_atom(@adapter_opts) and not is_nil(@adapter_opts) ->
             defp adapter_options!(app_name) when is_atom(app_name),
-              do: Application.fetch_env!(app_name, __MODULE__)
+              do: Cache.Config.fetch_env!(app_name, __MODULE__)
 
           is_function(@adapter_opts, 0) ->
             defp adapter_options!(fun) when is_function(fun, 0), do: fun.()
@@ -211,7 +211,9 @@ defmodule Cache do
                 @cache_name
                 |> @cache_strategy_module.get(key, @cache_strategy_config, adapter_options())
                 |> handle_adapter_result(:get, @cache_name)
-                |> case do
+
+              result =
+                case result do
                   {:ok, nil} = res ->
                     :telemetry.execute([:elixir_cache, :cache, :get, :miss], %{count: 1}, %{
                       cache_name: @cache_name
@@ -357,11 +359,11 @@ defmodule Cache do
             defp adapter_options!({module, fun, args}), do: apply(module, fun, args)
 
           match?({_, _}, @adapter_opts) ->
-            defp adapter_options!({app, key}), do: Application.fetch_env!(app, key)
+            defp adapter_options!({app, key}), do: Cache.Config.fetch_env!(app, key)
 
           is_atom(@adapter_opts) and not is_nil(@adapter_opts) ->
             defp adapter_options!(app_name) when is_atom(app_name),
-              do: Application.fetch_env!(app_name, __MODULE__)
+              do: Cache.Config.fetch_env!(app_name, __MODULE__)
 
           is_function(@adapter_opts, 0) ->
             defp adapter_options!(fun) when is_function(fun, 0), do: fun.()
@@ -426,7 +428,9 @@ defmodule Cache do
                 @cache_name
                 |> @cache_adapter.get(key, adapter_options())
                 |> handle_adapter_result(:get, @cache_name)
-                |> case do
+
+              result =
+                case result do
                   {:ok, nil} = res ->
                     :telemetry.execute([:elixir_cache, :cache, :get, :miss], %{count: 1}, %{
                       cache_name: @cache_name

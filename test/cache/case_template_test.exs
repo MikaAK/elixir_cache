@@ -17,7 +17,7 @@ defmodule Cache.CaseTemplateTest do
       opts: []
   end
 
-  defmodule TestCacheCase do
+  defmodule TestCacheCaseTemplate do
     use Cache.CaseTemplate, default_caches: [TestCache]
   end
 
@@ -83,8 +83,8 @@ defmodule Cache.CaseTemplateTest do
 end
 
 defmodule Cache.CaseTemplateTest.IsolationTest do
-  use ExUnit.Case
-  use Cache.CaseTemplateTest.TestCacheCase
+  use ExUnit.Case, async: true
+  use Cache.CaseTemplateTest.TestCacheCaseTemplate
 
   alias Cache.CaseTemplateTest.TestCache
 
@@ -100,7 +100,7 @@ defmodule Cache.CaseTemplateTest.IsolationTest do
 end
 
 defmodule Cache.CaseTemplateTest.ExtraCachesTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
   use Cache.CaseTemplateTest.TestCaseCaseWithExtra, caches: [Cache.CaseTemplateTest.TestCache2]
 
   alias Cache.CaseTemplateTest.TestCache

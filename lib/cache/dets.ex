@@ -305,8 +305,8 @@ defmodule Cache.DETS do
       @doc """
       Returns the list of objects associated with slot I.
       """
-      def slot(i) do
-        :dets.slot(@cache_name, i)
+      def slot(index) do
+        :dets.slot(@cache_name, index)
       end
 
       @doc """
@@ -385,8 +385,8 @@ defmodule Cache.DETS do
     parent = self()
     ref = make_ref()
 
-    {:ok, pid} =
-      Task.start_link(fn ->
+    pid =
+      spawn_link(fn ->
         table_name = opts[:table_name]
 
         file_path =
@@ -401,7 +401,10 @@ defmodule Cache.DETS do
           |> Keyword.drop([:table_name, :file_path])
           |> Kernel.++(access: :read_write, file: file_path)
 
-        {:ok, _} = :dets.open_file(table_name, opts)
+        case :dets.open_file(table_name, opts) do
+          {:ok, _table} -> :ok
+          {:error, reason} -> exit({:dets_open_file, reason})
+        end
 
         send(parent, {ref, :ready})
         Process.hibernate(Function, :identity, [nil])

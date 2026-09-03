@@ -18,6 +18,9 @@
 
 ## Bug Fixes
 
+- fix(refresh_ahead, hash_ring): the background refresh task and the read-repair delete task now run under a `Task.Supervisor` inside the strategy's own supervision tree instead of an unsupervised `Task.start/1`.
+- fix(hash_ring): an exception raised by the RPC module during read-repair is logged at warning level before the node is treated as unavailable, instead of being swallowed.
+- fix(hash_ring): `Cache.HashRing.RingMonitor` seeds its history table and subscribes to node events from `handle_continue/2` rather than blocking in `init/1`.
 - fix: `:compression_level` is reachable. It was unusable on every path — no adapter declares it, so `NimbleOptions` rejected it on compile-time adapter opts, and it resolved to `nil` before it could reach the encoder otherwise. It is now an option on the `use Cache` line (`compression_level: 6`), it is taken off the adapter opts before they are validated so the `opts: [compression_level: 6]` spelling works too, and it is never handed to the adapter. Setting it forces encoding on adapters that hold terms natively — asking for compression is asking for bytes. A cache using a strategy adapter raises at compile time rather than ignoring the option.
 - fix: `Cache.ConCache.get_or_store/3` followed by `get/1` no longer raises. `get_or_store/3` writes through ConCache directly, bypassing the encode in `put/3`, so the matching `get/1` tried to `binary_to_term/1` a raw term.
 - fix: a binary value wrapped in braces but not valid JSON (eg `"{oops}"`) no longer raises `Jason.DecodeError` on read. `Cache.TermEncoder.decode/1` used `Jason.decode!/1`, and now falls back to returning the binary unchanged.

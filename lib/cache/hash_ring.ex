@@ -78,6 +78,8 @@ defmodule Cache.HashRing do
 
   @behaviour Cache.Strategy
 
+  require Logger
+
   @strategy_keys [:ring_opts, :node_weight, :rpc_module, :ring_history_size, :__cache_module__]
 
   @opts_definition [
@@ -143,7 +145,8 @@ defmodule Cache.HashRing do
            [
              underlying_adapter.child_spec({cache_name, underlying_opts}),
              managed_ring_spec,
-             ring_monitor_spec
+             ring_monitor_spec,
+             {Task.Supervisor, name: task_supervisor_name(cache_name)}
            ],
            [strategy: :one_for_one]
          ]}
@@ -250,7 +253,7 @@ defmodule Cache.HashRing do
       rpc.call(current_node, underlying_adapter, :put, [cache_name, key, nil, encoded, underlying_opts])
     end
 
-    Task.start(fn ->
+    Task.Supervisor.start_child(task_supervisor_name(cache_name), fn ->
       rpc.call(old_node, underlying_adapter, :delete, [cache_name, key, underlying_opts])
     end)
   end
@@ -262,10 +265,15 @@ defmodule Cache.HashRing do
       {:badrpc, _} -> :unavailable
     end
   rescue
-    _ -> :unavailable
+    exception ->
+      Logger.warning("#{__MODULE__}: rpc get on #{inspect(node)} raised, error: #{inspect(exception)}")
+
+      :unavailable
   catch
     :exit, _ -> :unavailable
   end
+
+  defp task_supervisor_name(cache_name), do: :"#{cache_name}_hash_ring_tasks"
 
   defp key_to_node(cache_name, key) do
     ring = ring_name(cache_name)

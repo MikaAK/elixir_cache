@@ -34,6 +34,9 @@ defmodule Cache.RefreshAheadTest do
     def refresh(key), do: {:ok, "locked:#{key}"}
   end
 
+  # Every fixture cache uses refresh_before: 500, so this TTL is inside the window at age 0.
+  @in_window_ttl 500
+
   setup do
     start_supervised!(%{
       id: :refresh_cache_sup,
@@ -86,58 +89,80 @@ defmodule Cache.RefreshAheadTest do
       assert :ok === TestRefreshCache.put("no_refresh_key", 10_000, "original")
 
       assert {:ok, "original"} === TestRefreshCache.get("no_refresh_key")
-
-      Process.sleep(50)
-
       assert {:ok, "original"} === TestRefreshCache.get("no_refresh_key")
     end
 
+    # A TTL no larger than refresh_before puts the key inside the refresh window from the
+    # first read: that read returns the stale value and spawns the async refresh.
     test "triggers async refresh when within refresh_before window" do
-      assert :ok === TestRefreshCache.put("refresh_key", 2000, "original")
+      assert :ok === TestRefreshCache.put("refresh_key", @in_window_ttl, "original")
 
       assert {:ok, "original"} === TestRefreshCache.get("refresh_key")
 
-      Process.sleep(1600)
-
-      assert {:ok, "original"} === TestRefreshCache.get("refresh_key")
-
-      Process.sleep(200)
-
-      assert {:ok, "refreshed:refresh_key"} === TestRefreshCache.get("refresh_key")
+      assert Cache.Wait.until(fn ->
+               TestRefreshCache.get("refresh_key") === {:ok, "refreshed:refresh_key"}
+             end)
     end
 
     test "on_refresh option overrides module callback" do
-      assert :ok === CallbackRefreshCache.put("cb_key", 2000, "original")
+      assert :ok === CallbackRefreshCache.put("cb_key", @in_window_ttl, "original")
 
       assert {:ok, "original"} === CallbackRefreshCache.get("cb_key")
 
-      Process.sleep(1600)
-
-      assert {:ok, "original"} === CallbackRefreshCache.get("cb_key")
-
-      Process.sleep(200)
-
-      assert {:ok, "custom:cb_key"} === CallbackRefreshCache.get("cb_key")
+      assert Cache.Wait.until(fn ->
+               CallbackRefreshCache.get("cb_key") === {:ok, "custom:cb_key"}
+             end)
     end
   end
 
   describe "deduplication" do
+    # The refresh callback counts its calls and then blocks until the test opens the gate,
+    # so every concurrent get runs while one refresh is provably still in flight.
+    defmodule DedupRefreshCache do
+      use Cache,
+        adapter: {Cache.RefreshAhead, Cache.ETS},
+        name: :dedup_refresh_cache,
+        opts: [refresh_before: 500]
+
+      def refresh(key) do
+        Agent.update(__MODULE__.Calls, &(&1 + 1))
+        Cache.Wait.until(fn -> Agent.get(__MODULE__.Gate, & &1) end, 5_000)
+        {:ok, "refreshed:#{key}"}
+      end
+    end
+
+    setup do
+      start_supervised!(%{
+        id: :dedup_refresh_cache_sup,
+        type: :supervisor,
+        start: {Cache, :start_link, [[DedupRefreshCache], [name: :dedup_refresh_cache_sup]]}
+      })
+
+      start_supervised!(%{id: :calls, start: {Agent, :start_link, [fn -> 0 end, [name: DedupRefreshCache.Calls]]}})
+      start_supervised!(%{id: :gate, start: {Agent, :start_link, [fn -> false end, [name: DedupRefreshCache.Gate]]}})
+
+      :ok
+    end
+
     test "multiple concurrent gets only spawn one refresh task" do
-      assert :ok === TestRefreshCache.put("dedup_key", 2000, "original")
+      assert :ok === DedupRefreshCache.put("dedup_key", @in_window_ttl, "original")
 
-      Process.sleep(1600)
+      results =
+        1..5
+        |> Enum.map(fn _ -> Task.async(fn -> DedupRefreshCache.get("dedup_key") end) end)
+        |> Task.await_many()
 
-      tasks =
-        Enum.map(1..5, fn _ ->
-          Task.async(fn -> TestRefreshCache.get("dedup_key") end)
-        end)
+      assert Enum.all?(results, &(&1 === {:ok, "original"}))
 
-      results = Task.await_many(tasks)
-      assert Enum.all?(results, fn {:ok, val} -> val === "original" end)
+      # The one refresh task is parked at the gate, so the count cannot climb past 1.
+      assert Cache.Wait.until(fn -> Agent.get(DedupRefreshCache.Calls, & &1) >= 1 end)
+      assert Agent.get(DedupRefreshCache.Calls, & &1) === 1
 
-      Process.sleep(200)
+      Agent.update(DedupRefreshCache.Gate, fn _ -> true end)
 
-      assert {:ok, "refreshed:dedup_key"} === TestRefreshCache.get("dedup_key")
+      assert Cache.Wait.until(fn ->
+               DedupRefreshCache.get("dedup_key") === {:ok, "refreshed:dedup_key"}
+             end)
     end
 
     test "global lock prevents refresh while lock is held" do
@@ -146,13 +171,10 @@ defmodule Cache.RefreshAheadTest do
       lock_nodes = [Node.self()]
 
       assert true === :global.set_lock(lock_id, lock_nodes, 0)
-      assert :ok === LockedRefreshCache.put("locked_key", 2000, "original")
-
-      Process.sleep(1600)
+      assert :ok === LockedRefreshCache.put("locked_key", @in_window_ttl, "original")
 
       assert {:ok, "original"} === LockedRefreshCache.get("locked_key")
-
-      Process.sleep(250)
+      assert Cache.Wait.until(fn -> refresh_finished?(:locked_refresh_cache, "locked_key") end)
 
       assert {:ok, "original"} === LockedRefreshCache.get("locked_key")
 
@@ -160,15 +182,15 @@ defmodule Cache.RefreshAheadTest do
       # clean itself up before releasing — otherwise it can reach :global.set_lock after
       # the del_lock below, take the freed lock, and refresh the value we assert is still
       # untouched.
-      Process.sleep(250)
+      assert Cache.Wait.until(fn -> refresh_finished?(:locked_refresh_cache, "locked_key") end)
 
       assert true === :global.del_lock(lock_id, lock_nodes)
 
       assert {:ok, "original"} === LockedRefreshCache.get("locked_key")
 
-      Process.sleep(250)
-
-      assert {:ok, "locked:locked_key"} === LockedRefreshCache.get("locked_key")
+      assert Cache.Wait.until(fn ->
+               LockedRefreshCache.get("locked_key") === {:ok, "locked:locked_key"}
+             end)
     end
   end
 
@@ -198,16 +220,10 @@ defmodule Cache.RefreshAheadTest do
     end
 
     test "uses MFA tuple for refresh callback" do
-      assert :ok === MFARefreshCache.put("mfa_key", 2000, "original")
+      assert :ok === MFARefreshCache.put("mfa_key", @in_window_ttl, "original")
       assert {:ok, "original"} === MFARefreshCache.get("mfa_key")
 
-      Process.sleep(1600)
-
-      assert {:ok, "original"} === MFARefreshCache.get("mfa_key")
-
-      Process.sleep(200)
-
-      assert {:ok, "mfa:mfa_key"} === MFARefreshCache.get("mfa_key")
+      assert Cache.Wait.until(fn -> MFARefreshCache.get("mfa_key") === {:ok, "mfa:mfa_key"} end)
     end
   end
 
@@ -242,16 +258,20 @@ defmodule Cache.RefreshAheadTest do
     end
 
     test "works with atom whitelist" do
-      assert :ok === AtomWhitelistCache.put("awl_key", 2000, "original")
-
-      Process.sleep(1600)
+      assert :ok === AtomWhitelistCache.put("awl_key", @in_window_ttl, "original")
 
       assert {:ok, "original"} === AtomWhitelistCache.get("awl_key")
 
-      Process.sleep(200)
-
-      assert {:ok, "atom_wl:awl_key"} === AtomWhitelistCache.get("awl_key")
+      assert Cache.Wait.until(fn ->
+               AtomWhitelistCache.get("awl_key") === {:ok, "atom_wl:awl_key"}
+             end)
     end
+  end
+
+  # The refresh task clears its tracker entry in an `after` block, so an absent entry means
+  # the spawned task has finished — whether it refreshed or lost the lock race.
+  defp refresh_finished?(cache_name, key) do
+    not :ets.member(:"#{cache_name}_refresh_tracker", key)
   end
 
   describe "cache_adapter/0" do

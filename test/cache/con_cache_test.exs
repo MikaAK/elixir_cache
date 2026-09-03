@@ -64,11 +64,8 @@ defmodule Cache.ConCacheTest do
     test "uses fetch function exactly once", %{key: key} do
       assert "VALUE" ===
                ConCacheAdapter.get_or_store(key, @ttl, fn ->
-                 Process.sleep(1_000)
                  "VALUE"
                end)
-
-      Process.sleep(200)
 
       assert "VALUE" === ConCacheAdapter.get_or_store(key, @ttl, fn -> raise "not used" end)
     end

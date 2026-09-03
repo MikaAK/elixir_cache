@@ -81,7 +81,7 @@ defmodule Cache.TermEncoder do
   def native_term_storage?({_strategy_module, _strategy_config}, _adapter_opts), do: true
 
   def native_term_storage?(adapter, adapter_opts) when is_atom(adapter) do
-    if function_exported?(adapter, :native_term_storage?, 1) do
+    if Code.ensure_loaded?(adapter) and function_exported?(adapter, :native_term_storage?, 1) do
       adapter.native_term_storage?(adapter_opts)
     else
       compile_time_native_term_storage?(adapter, adapter_opts)

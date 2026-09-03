@@ -12,8 +12,6 @@ defmodule Cache.ETSTest do
   setup do
     start_supervised({Cache, [TestETSCache]})
 
-    Process.sleep(100)
-
     :ok
   end
 
@@ -163,8 +161,6 @@ defmodule Cache.ETSTest do
         }
       )
 
-      Process.sleep(100)
-
       assert {:ok, "persisted_value"} === RehydrateTestCache.get(:persisted_key)
     end
 
@@ -179,8 +175,6 @@ defmodule Cache.ETSTest do
           start: {Cache, :start_link, [[NewTableTestCache], [name: :new_table_cache_sup]]}
         }
       )
-
-      Process.sleep(100)
 
       assert {:ok, nil} === NewTableTestCache.get(:nonexistent_key)
       assert :ok === NewTableTestCache.put(:new_key, "new_value")
@@ -228,7 +222,6 @@ defmodule Cache.ETSTest do
         start: {Cache, :start_link, [[DeleteTableCache], [name: :delete_table_sup]]}
       })
 
-      Process.sleep(100)
       DeleteTableCache.insert_raw({:key, "val"})
       assert DeleteTableCache.delete_table() === true
     end
@@ -357,7 +350,6 @@ defmodule Cache.ETSTest do
         start: {Cache, :start_link, [[RenameTestCache], [name: :rename_test_sup]]}
       })
 
-      Process.sleep(100)
       RenameTestCache.insert_raw({:rkey, "rval"})
       RenameTestCache.rename(:renamed_cache)
       assert :ets.lookup(:renamed_cache, :rkey) === [{:rkey, "rval"}]
@@ -493,7 +485,6 @@ defmodule Cache.ETSTest do
         start: {Cache, :start_link, [[File2TabTestCache], [name: :file2tab_sup]]}
       })
 
-      Process.sleep(100)
       File2TabTestCache.insert_raw({:fb_key, "val"})
       file = ~c"/tmp/test_ets_file2tab_#{:rand.uniform(100_000)}"
 
