@@ -17,6 +17,18 @@ defmodule Cache.DETSTest do
     :ok
   end
 
+  describe "start_link/1 with a file that is not a dets table" do
+    test "returns the open_file reason instead of crashing the caller" do
+      Process.flag(:trap_exit, true)
+      file_path = "/tmp/corrupt_dets_#{System.unique_integer([:positive])}.dets"
+      File.write!(file_path, "not a dets file")
+      on_exit(fn -> File.rm(file_path) end)
+
+      assert {:error, {:dets_open_file, {:not_a_dets_file, _path}}} =
+               Cache.DETS.start_link(table_name: :corrupt_dets_cache, file_path: file_path)
+    end
+  end
+
   describe "match_object/2" do
     test "matches objects in the table" do
       TestDETSCache.insert_raw({:key1, "SomeRandomValue"})

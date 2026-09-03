@@ -163,6 +163,16 @@ defmodule Cache.CounterTest do
     end
   end
 
+  describe "adapter calls against a counter that was never started" do
+    test "every operation returns an error tuple instead of raising" do
+      assert {:error, %ErrorMessage{code: :internal_server_error}} = Cache.Counter.get(:no_such_counter, 0)
+      assert {:error, %ErrorMessage{code: :internal_server_error}} = Cache.Counter.put(:no_such_counter, 0, 1)
+      assert {:error, %ErrorMessage{code: :internal_server_error}} = Cache.Counter.delete(:no_such_counter, 0)
+      assert {:error, %ErrorMessage{code: :internal_server_error}} = Cache.Counter.increment(:no_such_counter, 0)
+      assert {:error, %ErrorMessage{code: :internal_server_error}} = Cache.Counter.decrement(:no_such_counter, 0)
+    end
+  end
+
   describe "get with non-integer key" do
     test "returns error for atom key" do
       assert {:error, %ErrorMessage{code: :bad_request}} = TestCounterCache.get(:some_atom)

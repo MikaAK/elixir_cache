@@ -274,6 +274,22 @@ defmodule Cache.RefreshAheadTest do
     not :ets.member(:"#{cache_name}_refresh_tracker", key)
   end
 
+  describe "strategy calls on a cache whose tracker table does not exist" do
+    test "get/4 still returns the stored value and skips the refresh" do
+      :ets.new(:orphan_refresh_cache, [:set, :public, :named_table])
+      wrapped = {"original", System.monotonic_time(:millisecond), @in_window_ttl}
+      :ets.insert(:orphan_refresh_cache, {"key", wrapped})
+
+      assert {:ok, "original"} ===
+               Cache.RefreshAhead.get(:orphan_refresh_cache, "key", Cache.ETS, refresh_before: 500)
+    end
+
+    test "delete/4 returns the underlying adapter's error instead of raising" do
+      assert {:error, %ErrorMessage{code: :internal_server_error}} =
+               Cache.RefreshAhead.delete(:no_such_refresh_cache, "key", Cache.ETS, [])
+    end
+  end
+
   describe "cache_adapter/0" do
     test "returns Cache.RefreshAhead as adapter" do
       assert TestRefreshCache.cache_adapter() === Cache.RefreshAhead

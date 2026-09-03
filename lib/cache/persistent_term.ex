@@ -51,13 +51,12 @@ defmodule Cache.PersistentTerm do
     }
   end
 
+  # `:persistent_term.get/2`, `put/2` and `erase/1` never raise, so there is nothing to rescue.
+
   @impl Cache
   @spec get(atom, atom | String.t(), Keyword.t()) :: ErrorMessage.t_res(any)
   def get(cache_name, key, _opts \\ []) do
     {:ok, :persistent_term.get({cache_name, key}, nil)}
-  rescue
-    exception in ArgumentError ->
-      {:error, ErrorMessage.internal_server_error(Exception.message(exception), %{cache: cache_name, key: key})}
   end
 
   @impl Cache
@@ -65,9 +64,6 @@ defmodule Cache.PersistentTerm do
   def put(cache_name, key, _ttl \\ nil, value, _opts \\ []) do
     :persistent_term.put({cache_name, key}, value)
     :ok
-  rescue
-    exception in ArgumentError ->
-      {:error, ErrorMessage.internal_server_error(Exception.message(exception), %{cache: cache_name, key: key})}
   end
 
   @impl Cache
@@ -75,8 +71,5 @@ defmodule Cache.PersistentTerm do
   def delete(cache_name, key, _opts \\ []) do
     :persistent_term.erase({cache_name, key})
     :ok
-  rescue
-    exception in ArgumentError ->
-      {:error, ErrorMessage.internal_server_error(Exception.message(exception), %{cache: cache_name, key: key})}
   end
 end
