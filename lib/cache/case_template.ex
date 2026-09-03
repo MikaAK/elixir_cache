@@ -118,10 +118,10 @@ defmodule Cache.CaseTemplate do
             |> Supervisor.which_children()
             |> Enum.filter(fn {_id, _pid, _type, modules} ->
               is_list(modules) and
-                Enum.any?(modules, &function_exported?(&1, :cache_name, 0))
+                Enum.any?(modules, &(Code.ensure_loaded?(&1) and function_exported?(&1, :cache_name, 0)))
             end)
             |> Enum.flat_map(fn {_id, _pid, _type, modules} ->
-              Enum.filter(modules, &function_exported?(&1, :cache_name, 0))
+              Enum.filter(modules, &(Code.ensure_loaded?(&1) and function_exported?(&1, :cache_name, 0)))
             end)
         end
     end

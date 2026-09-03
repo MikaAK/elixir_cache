@@ -461,7 +461,7 @@ defmodule Cache.Sandbox do
 
     Agent.get(Cache.Sandbox, fn state -> state |> scoped_get(sid) |> Map.keys() end)
   rescue
-    _ -> []
+    ArgumentError -> []
   end
 
   def delete_table(cache_name) do
@@ -838,6 +838,7 @@ defmodule Cache.Sandbox do
     end)
   end
 
+  # ETS counts a match only when the spec body returns exactly `true`, not any truthy term.
   def select_count(cache_name, match_spec) do
     compiled = :ets.match_spec_compile(match_spec)
 
@@ -845,7 +846,7 @@ defmodule Cache.Sandbox do
       sub
       |> Map.to_list()
       |> :ets.match_spec_run(compiled)
-      |> Enum.count(&(&1 === true))
+      |> Enum.count(&match?(true, &1))
     end)
   end
 
@@ -857,7 +858,7 @@ defmodule Cache.Sandbox do
         sub
         |> Map.to_list()
         |> Enum.split_with(fn obj ->
-          [obj] |> :ets.match_spec_run(compiled) |> Enum.any?(&(&1 === true))
+          [obj] |> :ets.match_spec_run(compiled) |> Enum.any?(&match?(true, &1))
         end)
 
       {length(to_delete), Map.new(to_keep)}
@@ -896,7 +897,7 @@ defmodule Cache.Sandbox do
 
     if updates !== [] do
       scoped_agent_update(cache_name, fn sub ->
-        Enum.reduce(updates, sub, fn {k, v}, acc -> Map.put(acc, k, v) end)
+        Enum.reduce(updates, sub, fn {key, value}, acc -> Map.put(acc, key, value) end)
       end)
     end
 
@@ -932,14 +933,14 @@ defmodule Cache.Sandbox do
     Keyword.get(info, item)
   end
 
-  def slot(cache_name, i) do
+  def slot(cache_name, index) do
     scoped_agent_get(cache_name, fn sub ->
       list = Map.to_list(sub)
 
-      if i >= length(list) do
+      if index >= length(list) do
         :"$end_of_table"
       else
-        [Enum.at(list, i)]
+        [Enum.at(list, index)]
       end
     end)
   end
@@ -1162,8 +1163,7 @@ defmodule Cache.Sandbox do
   end
 
   def select_reverse(cache_name, match_spec) do
-    result = select(cache_name, match_spec)
-    Enum.reverse(result)
+    cache_name |> select(match_spec) |> Enum.reverse()
   end
 
   def select_reverse(cache_name, match_spec, limit) do
@@ -1279,6 +1279,6 @@ defmodule Cache.Sandbox do
     end)
   end
 
-  defp enum_length(m) when is_map(m), do: m |> Map.to_list() |> enum_length()
-  defp enum_length(l), do: length(l)
+  defp enum_length(map) when is_map(map), do: map |> Map.to_list() |> enum_length()
+  defp enum_length(list), do: length(list)
 end

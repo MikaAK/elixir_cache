@@ -34,7 +34,8 @@ defmodule CacheTest do
       setup do
         start_supervised({Cache, [unquote(adapter)]})
 
-        Process.sleep(100)
+        # Cache.Redis connects asynchronously, so wait for a read to succeed before testing.
+        assert Cache.Wait.until(fn -> match?({:ok, _}, unquote(adapter).get(:readiness_probe)) end)
 
         :ok
       end
@@ -47,8 +48,6 @@ defmodule CacheTest do
         assert {:ok, nil} = cache_module.get(test_key)
         assert :ok = cache_module.put(test_key, value)
 
-        Process.sleep(50)
-
         assert {:ok, value} === cache_module.get(test_key)
       end
 
@@ -59,11 +58,7 @@ defmodule CacheTest do
 
         assert :ok = cache_module.put(test_key, value)
 
-        Process.sleep(50)
-
         assert :ok = cache_module.delete(test_key)
-
-        Process.sleep(50)
 
         assert {:ok, nil} = cache_module.get(test_key)
       end
@@ -76,12 +71,8 @@ defmodule CacheTest do
         assert {:ok, nil} = cache_module.get(test_key)
         assert :ok = cache_module.put(test_key, value)
 
-        Process.sleep(50)
-
         assert {:ok, value} === cache_module.get(test_key)
         assert :ok = cache_module.put(test_key, nil)
-
-        Process.sleep(50)
 
         assert {:ok, nil} = cache_module.get(test_key)
       end
@@ -91,7 +82,8 @@ defmodule CacheTest do
       setup do
         start_supervised({Cache, [unquote(adapter)]})
 
-        Process.sleep(100)
+        # Cache.Redis connects asynchronously, so wait for a read to succeed before testing.
+        assert Cache.Wait.until(fn -> match?({:ok, _}, unquote(adapter).get(:readiness_probe)) end)
 
         :ok
       end
@@ -102,8 +94,6 @@ defmodule CacheTest do
         cache_module = unquote(adapter)
 
         assert :ok = cache_module.put(test_key, value)
-
-        Process.sleep(50)
 
         assert {:ok, value} ===
                  cache_module.get_or_create(test_key, fn ->
@@ -124,8 +114,6 @@ defmodule CacheTest do
                  cache_module.get_or_create(test_key, fn ->
                    {:ok, value}
                  end)
-
-        Process.sleep(50)
 
         assert {:ok, value} === cache_module.get(test_key)
       end
@@ -162,8 +150,6 @@ defmodule CacheTest do
     test "returns application env config with name" do
       options = [host: "localhost", port: 6379]
 
-      Application.put_env(:elixir_cache, TestCache.RedisRuntimeAppEnv, options)
-
       defmodule TestCache.RedisRuntimeAppEnv do
         use Cache,
           adapter: Cache.Redis,
@@ -176,8 +162,6 @@ defmodule CacheTest do
 
     test "returns application env config with name and key" do
       options = [host: "localhost", port: 6379]
-
-      Application.put_env(:elixir_cache, :cache, options)
 
       defmodule TestCache.RedisRuntimeAppEnvKey do
         use Cache,

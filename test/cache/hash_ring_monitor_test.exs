@@ -68,7 +68,7 @@ defmodule Cache.HashRing.RingMonitorTest do
         })
 
       send(pid, :some_random_message)
-      Process.sleep(50)
+      _synced = :sys.get_state(pid)
       assert Process.alive?(pid)
     end
 
@@ -83,11 +83,11 @@ defmodule Cache.HashRing.RingMonitorTest do
         })
 
       send(pid, {:nodeup, :"fake@node", %{}})
-      Process.sleep(50)
+      _synced = :sys.get_state(pid)
       assert Process.alive?(pid)
 
       send(pid, {:nodedown, :"fake@node", %{}})
-      Process.sleep(50)
+      _synced = :sys.get_state(pid)
       assert Process.alive?(pid)
     end
   end

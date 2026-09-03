@@ -25,13 +25,15 @@ allowed_imports = [
           "apps/*/lib/",
           "apps/*/src/",
           "apps/*/test/",
-          "apps/*/web/"
+          "apps/*/web/",
+          "mix.exs",
+          ".credo.exs"
         ],
         excluded: [~r"_build/", ~r"deps/"]
       },
       plugins: [],
       strict: true,
-      parse_timeout: 10000,
+      parse_timeout: 10_000,
       color: true,
       checks: [
 
@@ -40,13 +42,72 @@ allowed_imports = [
         {BlitzCredoChecks.SetWarningsAsErrorsInTest, false},
         {BlitzCredoChecks.DocsBeforeSpecs, []},
         {BlitzCredoChecks.DoctestIndent, []},
-        {BlitzCredoChecks.NoAsyncFalse, []},
+        # Superseded by MikaCredoRules.AsyncTrueRequired: the choice must be explicit, and a
+        # deliberate async: false is allowed.
+        {BlitzCredoChecks.NoAsyncFalse, false},
         {BlitzCredoChecks.NoDSLParentheses, []},
         {BlitzCredoChecks.NoIsBitstring, []},
-        {BlitzCredoChecks.StrictComparison, []},
+        {BlitzCredoChecks.StrictComparison, false},
         {BlitzCredoChecks.UseStream, []},
         {BlitzCredoChecks.LowercaseTestNames, []},
         {BlitzCredoChecks.ImproperImport, allowed_modules: allowed_imports},
+
+        # MikaCredoRules (supersedes BlitzCredoChecks.StrictComparison, TagTODO, TagFIXME)
+        {MikaCredoRules.AsyncTrueRequired, []},
+        {MikaCredoRules.CredoConfigNamedDefault, []},
+        {MikaCredoRules.DistributionRequiresBuckets, []},
+        {MikaCredoRules.EnsureLoadedBeforeExported, []},
+        # lib/cache/ets.ex: opts_definition/1 is a NimbleOptions :custom validator, whose contract
+        # is {:error, String.t()}
+        {MikaCredoRules.ErrorMessageRequired, [excluded_paths: ["_test.exs", "test/", "lib/cache/ets.ex"]]},
+        {MikaCredoRules.ExceptionNamesEndInError, []},
+        {MikaCredoRules.GenServerRequiresHandleContinue, []},
+        {MikaCredoRules.LoggerModulePrefixAndInspect, []},
+        {MikaCredoRules.LowercaseErrorMessages, []},
+        {MikaCredoRules.NoAccessOnStructSubject, []},
+        {MikaCredoRules.NoApplicationEnvOutsideConfig, []},
+        {MikaCredoRules.NoAtomStringKeyFallback, []},
+        {MikaCredoRules.NoBarePatternMatchOnFallible, []},
+        {MikaCredoRules.NoBinaryPatternForStringPrefix, []},
+        {MikaCredoRules.NoBlanketRescue, []},
+        {MikaCredoRules.NoBooleanLiteralComparison, []},
+        {MikaCredoRules.NoCondElseAtom, []},
+        {MikaCredoRules.NoDoPrefixedHelper, []},
+        {MikaCredoRules.NoForWithDiscardedResult, []},
+        {MikaCredoRules.NoHardcodedSecretLiterals, []},
+        {MikaCredoRules.NoIOANSIRawEscapes, []},
+        {MikaCredoRules.NoIdentityRewrap, []},
+        {MikaCredoRules.NoIntermediateSingleUseVariable, []},
+        {MikaCredoRules.NoKernelPrefix, []},
+        {MikaCredoRules.NoLengthZeroComparison, []},
+        {MikaCredoRules.NoMixEnvAtRuntime, []},
+        {MikaCredoRules.NoMockingLibraries, []},
+        {MikaCredoRules.NoNilComparison, []},
+        {MikaCredoRules.NoPipeIntoControlFlow, []},
+        {MikaCredoRules.NoProcessSleepInTests, []},
+        {MikaCredoRules.NoSelfSendZeroDelay, []},
+        {MikaCredoRules.NoSingleLetterVariables, []},
+        {MikaCredoRules.NoTaskAsyncInGenServer, []},
+        {MikaCredoRules.NoTruthyAndOr, []},
+        {MikaCredoRules.NoUnboundBlockAssignment, []},
+        {MikaCredoRules.NoUnsupervisedTaskStart, []},
+        {MikaCredoRules.NoVacuousAssert, []},
+        {MikaCredoRules.NoWordSigilLists, []},
+        {MikaCredoRules.RefuteOverAssertNot, []},
+        {MikaCredoRules.SingleModulePerFile,
+         [excluded_paths: ["test/", "test/support/", "_test.exs", "cache_test_modules.ex"]]},
+        {MikaCredoRules.StrictEquality, []},
+        {MikaCredoRules.TaskAsyncStreamRequiresTimeout, []},
+        {MikaCredoRules.TestOnlyDepsScoped,
+         [test_only_packages: [:credo, :blitz_credo_checks, :mika_credo_rules, :dialyxir, :excoveralls, :ex_doc]]},
+        {MikaCredoRules.TodosNeedTickets, []},
+
+        # MikaCredoRules that target consumers of this library, not the library itself
+        {MikaCredoRules.CacheOptsNoHardcodedUri, false},
+        {MikaCredoRules.CacheRequiresSandboxOption, false},
+        {MikaCredoRules.NoDirectErlangRpc, false},
+        {MikaCredoRules.NoRawEts, false},
+        {MikaCredoRules.NoReimplementedHelper, false},
 
         # Consistency Checks
         {Credo.Check.Consistency.ExceptionNames, []},
@@ -60,8 +121,8 @@ allowed_imports = [
         {Credo.Check.Design.AliasUsage, false},
 
         # No outstanding TODOs
-        {Credo.Check.Design.TagTODO, []},
-        {Credo.Check.Design.TagFIXME, []},
+        {Credo.Check.Design.TagTODO, false},
+        {Credo.Check.Design.TagFIXME, false},
 
         # # Readability Checks
         {Credo.Check.Readability.AliasOrder, false},

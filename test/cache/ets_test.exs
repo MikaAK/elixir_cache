@@ -12,8 +12,6 @@ defmodule Cache.ETSTest do
   setup do
     start_supervised({Cache, [TestETSCache]})
 
-    Process.sleep(100)
-
     :ok
   end
 
@@ -163,9 +161,40 @@ defmodule Cache.ETSTest do
         }
       )
 
-      Process.sleep(100)
-
       assert {:ok, "persisted_value"} === RehydrateTestCache.get(:persisted_key)
+    end
+
+    test "creates a new table when the file holds a different table name" do
+      File.mkdir_p!("/tmp/ets_test")
+      on_exit(fn -> File.rm_rf("/tmp/ets_test") end)
+
+      :ets.new(:some_other_table, [:set, :public, :named_table])
+      :ets.insert(:some_other_table, {:persisted_key, "other"})
+      :ets.tab2file(:some_other_table, ~c"/tmp/ets_test/rehydrate_test_cache.ets")
+      :ets.delete(:some_other_table)
+
+      start_supervised!(%{
+        id: :rehydrate_cache_sup,
+        type: :supervisor,
+        start: {Cache, :start_link, [[RehydrateTestCache], [name: :rehydrate_cache_sup]]}
+      })
+
+      assert {:ok, nil} === RehydrateTestCache.get(:persisted_key)
+    end
+
+    test "creates a new table when the file is not an ets dump" do
+      File.mkdir_p!("/tmp/ets_test")
+      on_exit(fn -> File.rm_rf("/tmp/ets_test") end)
+      File.write!("/tmp/ets_test/rehydrate_test_cache.ets", "not an ets dump")
+
+      start_supervised!(%{
+        id: :rehydrate_cache_sup,
+        type: :supervisor,
+        start: {Cache, :start_link, [[RehydrateTestCache], [name: :rehydrate_cache_sup]]}
+      })
+
+      assert :ok === RehydrateTestCache.put(:fresh_key, "fresh")
+      assert {:ok, "fresh"} === RehydrateTestCache.get(:fresh_key)
     end
 
     test "creates new table when no file exists" do
@@ -180,11 +209,17 @@ defmodule Cache.ETSTest do
         }
       )
 
-      Process.sleep(100)
-
       assert {:ok, nil} === NewTableTestCache.get(:nonexistent_key)
       assert :ok === NewTableTestCache.put(:new_key, "new_value")
       assert {:ok, "new_value"} === NewTableTestCache.get(:new_key)
+    end
+  end
+
+  describe "adapter calls against a table that does not exist" do
+    test "get, put and delete return an error tuple instead of raising" do
+      assert {:error, %ErrorMessage{code: :internal_server_error}} = Cache.ETS.get(:no_such_ets_table, :key)
+      assert {:error, %ErrorMessage{code: :internal_server_error}} = Cache.ETS.put(:no_such_ets_table, :key, "value")
+      assert {:error, %ErrorMessage{code: :internal_server_error}} = Cache.ETS.delete(:no_such_ets_table, :key)
     end
   end
 
@@ -228,7 +263,6 @@ defmodule Cache.ETSTest do
         start: {Cache, :start_link, [[DeleteTableCache], [name: :delete_table_sup]]}
       })
 
-      Process.sleep(100)
       DeleteTableCache.insert_raw({:key, "val"})
       assert DeleteTableCache.delete_table() === true
     end
@@ -357,7 +391,6 @@ defmodule Cache.ETSTest do
         start: {Cache, :start_link, [[RenameTestCache], [name: :rename_test_sup]]}
       })
 
-      Process.sleep(100)
       RenameTestCache.insert_raw({:rkey, "rval"})
       RenameTestCache.rename(:renamed_cache)
       assert :ets.lookup(:renamed_cache, :rkey) === [{:rkey, "rval"}]
@@ -493,7 +526,6 @@ defmodule Cache.ETSTest do
         start: {Cache, :start_link, [[File2TabTestCache], [name: :file2tab_sup]]}
       })
 
-      Process.sleep(100)
       File2TabTestCache.insert_raw({:fb_key, "val"})
       file = ~c"/tmp/test_ets_file2tab_#{:rand.uniform(100_000)}"
 

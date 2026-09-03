@@ -448,8 +448,8 @@ defmodule Cache.ETS do
       @doc """
       Returns the list of objects associated with slot I.
       """
-      def slot(i) do
-        @cache_adapter.slot(@cache_name, i)
+      def slot(index) do
+        @cache_adapter.slot(@cache_name, index)
       end
 
       @doc """
@@ -621,7 +621,7 @@ defmodule Cache.ETS do
   end
 
   defp maybe_compressed(original_opts, validated) do
-    if Keyword.has_key?(original_opts, :compressed) and validated[:compressed], do: :compressed
+    if Keyword.has_key?(original_opts, :compressed) && validated[:compressed], do: :compressed
   end
 
   defp maybe_kv(original_opts, validated, key) do
@@ -633,8 +633,8 @@ defmodule Cache.ETS do
     parent = self()
     ref = make_ref()
 
-    {:ok, pid} =
-      Task.start_link(fn ->
+    pid =
+      spawn_link(fn ->
         table_name = opts[:table_name]
         rehydration_path = opts[:rehydration_path]
 
@@ -673,15 +673,15 @@ defmodule Cache.ETS do
     if File.exists?(file_path) do
       case :ets.file2tab(String.to_charlist(file_path)) do
         {:ok, ^table_name} ->
-          Logger.info("[Cache.ETS] Rehydrated #{table_name} from #{file_path}")
+          Logger.info("#{__MODULE__}: rehydrated table #{inspect(table_name)} from #{inspect(file_path)}")
           :ok
 
         {:ok, _other_name} ->
-          Logger.warning("[Cache.ETS] File #{file_path} has different table name, creating new table #{table_name}")
+          Logger.warning("#{__MODULE__}: file #{inspect(file_path)} has a different table name, creating new table #{inspect(table_name)}")
           :ets.new(table_name, ets_opts)
 
         {:error, reason} ->
-          Logger.warning("[Cache.ETS] Failed to rehydrate #{table_name} from #{file_path}: #{inspect(reason)}, creating new table")
+          Logger.warning("#{__MODULE__}: failed to rehydrate #{inspect(table_name)} from #{inspect(file_path)}, creating new table, reason: #{inspect(reason)}")
           :ets.new(table_name, ets_opts)
       end
     else
@@ -703,7 +703,7 @@ defmodule Cache.ETS do
            end) do
         {:ok, _ref} -> :ok
         {:error, reason} ->
-          Logger.error("[Cache.ETS] Failed to setup exit signal handler for #{table_name}: #{inspect(reason)}")
+          Logger.error("#{__MODULE__}: failed to setup exit signal handler for #{inspect(table_name)}, reason: #{inspect(reason)}")
 
           :ok
       end
@@ -732,7 +732,8 @@ defmodule Cache.ETS do
       [] -> {:ok, nil}
     end
   rescue
-    e -> {:error, ErrorMessage.internal_server_error(Exception.message(e), %{cache: cache_name, key: key})}
+    exception in ArgumentError ->
+      {:error, ErrorMessage.internal_server_error(Exception.message(exception), %{cache: cache_name, key: key})}
   end
 
   @impl Cache
@@ -742,7 +743,8 @@ defmodule Cache.ETS do
 
     :ok
   rescue
-    e -> {:error, ErrorMessage.internal_server_error(Exception.message(e), %{cache: cache_name, key: key})}
+    exception in ArgumentError ->
+      {:error, ErrorMessage.internal_server_error(Exception.message(exception), %{cache: cache_name, key: key})}
   end
 
   @impl Cache
@@ -752,7 +754,8 @@ defmodule Cache.ETS do
 
     :ok
   rescue
-    e -> {:error, ErrorMessage.internal_server_error(Exception.message(e), %{cache: cache_name, key: key})}
+    exception in ArgumentError ->
+      {:error, ErrorMessage.internal_server_error(Exception.message(exception), %{cache: cache_name, key: key})}
   end
 
   # ETS-specific module-level functions called via @cache_adapter from the __using__ macro.
@@ -841,7 +844,7 @@ defmodule Cache.ETS do
 
   def setopts(cache_name, opts), do: :ets.setopts(cache_name, opts)
 
-  def slot(cache_name, i), do: :ets.slot(cache_name, i)
+  def slot(cache_name, index), do: :ets.slot(cache_name, index)
 
   def tab2file(cache_name, filename), do: :ets.tab2file(cache_name, filename)
   def tab2file(cache_name, filename, options), do: :ets.tab2file(cache_name, filename, options)
