@@ -107,8 +107,8 @@ defmodule Cache.Counter do
     parent = self()
     ready_ref = make_ref()
 
-    pid =
-      spawn_link(fn ->
+    {:ok, pid} =
+      Task.start_link(fn ->
         cache_name = opts[:table_name]
         initial_size = opts[:initial_size] || 1
         counters_opts = if opts[:write_concurrency], do: [:atomics, :write_concurrency], else: [:atomics]

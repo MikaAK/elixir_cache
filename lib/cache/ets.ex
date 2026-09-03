@@ -633,8 +633,8 @@ defmodule Cache.ETS do
     parent = self()
     ref = make_ref()
 
-    pid =
-      spawn_link(fn ->
+    {:ok, pid} =
+      Task.start_link(fn ->
         table_name = opts[:table_name]
         rehydration_path = opts[:rehydration_path]
 
