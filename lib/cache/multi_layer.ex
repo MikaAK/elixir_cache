@@ -8,35 +8,44 @@ defmodule Cache.MultiLayer do
 
   ## Usage
 
-  Pass a list of layers as the strategy config. Each element can be:
-
-  - A module that implements `Cache` (already running, not supervised by this adapter)
-  - An adapter module (e.g. `Cache.ETS`) — will be auto-started and supervised
-  - A tuple `{AdapterModule, opts}` — adapter with inline opts
+  Every layer is a `use Cache` MODULE — one that is already defined and
+  supervised in its own right. Adapters (`Cache.ETS`, `Cache.Redis`) are not
+  layers: an adapter is stateless and exports `get/3`/`put/5`, so it has no
+  instance to address, while a cache module exports `get/1`/`put/3` and
+  carries its own name. Wrap the adapter in a module and list that.
 
   ```elixir
+  defmodule MyApp.Local do
+    use Cache, adapter: Cache.ETS, name: :my_app_local, opts: []
+  end
+
+  defmodule MyApp.Shared do
+    use Cache, adapter: Cache.Redis, name: :my_app_shared, opts: [uri: "redis://localhost"]
+  end
+
   defmodule MyApp.LayeredCache do
     use Cache,
-      adapter: {Cache.MultiLayer, [Cache.ETS, MyApp.RedisCache]},
+      adapter: {Cache.MultiLayer, [MyApp.Local, MyApp.Shared]},
       name: :layered_cache,
       opts: []
   end
   ```
 
-  ## `__MODULE__` in Layers
-
-  You may include `__MODULE__` in the layer list to position the current
-  module's own underlying cache within the chain. If `__MODULE__` is omitted,
-  no local cache is created for the defining module—it acts as a pure facade.
+  Start every layer alongside the cascade, layers first:
 
   ```elixir
-  defmodule MyApp.LayeredCache do
-    use Cache,
-      adapter: {Cache.MultiLayer, [Cache.ETS, __MODULE__, MyApp.RedisCache]},
-      name: :layered_cache,
-      opts: [uri: "redis://localhost"]
-  end
+  {Cache, [MyApp.Local, MyApp.Shared, MyApp.LayeredCache]}
   ```
+
+  A layer that is not a cache module raises at startup with the offending
+  module named — see `child_spec/1`. Passing an adapter used to be documented
+  and silently did nothing, which is the failure this validation exists to
+  make impossible.
+
+  ## A cache cannot be its own layer
+
+  Do not list the defining module in its own layer list. Its `get/1` is this
+  strategy's `get/4`, so the cascade would call back into itself.
 
   ## Read Behaviour
 
@@ -145,8 +154,44 @@ defmodule Cache.MultiLayer do
   def opts_definition, do: @opts_definition
 
   @impl Cache.Strategy
-  def child_spec({cache_name, _layers, _adapter_opts}) do
+  def child_spec({cache_name, layers, _adapter_opts}) do
+    validate_layers!(cache_name, layers)
+
     Cache.MultiLayer.Coordinator.child_spec(cache_name)
+  end
+
+  # Layers are `use Cache` MODULES. Anything else — an adapter, a tuple, a
+  # typo — is rejected here, at startup, with the offending element named.
+  #
+  # This is not defensive tidiness: the dispatch below is duck-typed on
+  # `get/1`/`put/3`, and its previous no-match branches returned `{:ok, nil}`
+  # and `:ok`. Those are SUCCESS shapes. A layer that fails the check would
+  # read as a permanent miss and discard every write, and neither is
+  # distinguishable from a cold cache and a successful write — so a
+  # misconfigured cascade behaved exactly like a working one, forever.
+  # Startup is the last place this can still be loud.
+  defp validate_layers!(cache_name, layers) do
+    Enum.each(layers, fn layer ->
+      unless is_atom(layer) and cache_module?(layer) do
+        raise ArgumentError, """
+        #{inspect(cache_name)}: every Cache.MultiLayer layer must be a `use Cache` module, got:
+
+            #{inspect(layer)}
+
+        An adapter (Cache.ETS, Cache.Redis) is not a layer — it is stateless and
+        exports get/3, while a layer must export get/1. Wrap it in a module:
+
+            defmodule MyApp.Local do
+              use Cache, adapter: Cache.ETS, name: :my_app_local, opts: []
+            end
+
+        then list `MyApp.Local`, and start it alongside the cascade.
+
+        If the module IS a `use Cache` module, it is not compiled or loaded yet —
+        check for a typo or a missing dependency.
+        """
+      end
+    end)
   end
 
   @impl Cache.Strategy
@@ -278,29 +323,15 @@ defmodule Cache.MultiLayer do
     backfill_layers(cache_name, key, rest, value, ttl)
   end
 
-  defp layer_get(_cache_name, key, layer) when is_atom(layer) do
-    if cache_module?(layer) do
-      layer.get(key)
-    else
-      {:ok, nil}
-    end
-  end
+  # `validate_layers!/2` has already rejected anything that is not a cache
+  # module, so these dispatch directly. No fallback branch: a fallback here
+  # could only return a success shape, which is the defect that made a broken
+  # layer indistinguishable from a working one.
+  defp layer_get(_cache_name, key, layer), do: layer.get(key)
 
-  defp layer_put(_cache_name, key, ttl, value, layer) when is_atom(layer) do
-    if cache_module?(layer) do
-      layer.put(key, ttl, value)
-    else
-      :ok
-    end
-  end
+  defp layer_put(_cache_name, key, ttl, value, layer), do: layer.put(key, ttl, value)
 
-  defp layer_delete(_cache_name, key, layer) when is_atom(layer) do
-    if cache_module?(layer) do
-      layer.delete(key)
-    else
-      :ok
-    end
-  end
+  defp layer_delete(_cache_name, key, layer), do: layer.delete(key)
 
   defp cache_module?(module) do
     function_exported?(module, :get, 1) and function_exported?(module, :put, 2)
