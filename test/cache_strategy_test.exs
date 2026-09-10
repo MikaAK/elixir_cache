@@ -83,8 +83,6 @@ defmodule CacheStrategyTest do
              ]}
         })
 
-        Process.sleep(50)
-
         :ok
       end
 
@@ -96,8 +94,6 @@ defmodule CacheStrategyTest do
         assert {:ok, nil} = cache_module.get(test_key)
         assert :ok = cache_module.put(test_key, value)
 
-        Process.sleep(50)
-
         assert {:ok, value} === cache_module.get(test_key)
       end
 
@@ -108,11 +104,7 @@ defmodule CacheStrategyTest do
 
         assert :ok = cache_module.put(test_key, value)
 
-        Process.sleep(50)
-
         assert :ok = cache_module.delete(test_key)
-
-        Process.sleep(50)
 
         assert {:ok, nil} = cache_module.get(test_key)
       end
@@ -125,12 +117,8 @@ defmodule CacheStrategyTest do
         assert {:ok, nil} = cache_module.get(test_key)
         assert :ok = cache_module.put(test_key, value)
 
-        Process.sleep(50)
-
         assert {:ok, value} === cache_module.get(test_key)
         assert :ok = cache_module.put(test_key, nil)
-
-        Process.sleep(50)
 
         assert {:ok, nil} = cache_module.get(test_key)
       end
@@ -149,8 +137,6 @@ defmodule CacheStrategyTest do
              ]}
         })
 
-        Process.sleep(50)
-
         :ok
       end
 
@@ -160,8 +146,6 @@ defmodule CacheStrategyTest do
         cache_module = unquote(adapter)
 
         assert :ok = cache_module.put(test_key, value)
-
-        Process.sleep(50)
 
         assert {:ok, value} ===
                  cache_module.get_or_create(test_key, fn ->
@@ -182,8 +166,6 @@ defmodule CacheStrategyTest do
                  cache_module.get_or_create(test_key, fn ->
                    {:ok, value}
                  end)
-
-        Process.sleep(50)
 
         assert {:ok, value} === cache_module.get(test_key)
       end
@@ -245,8 +227,6 @@ defmodule CacheStrategyTest do
            ]}
       })
 
-      Process.sleep(50)
-
       :ok
     end
 
@@ -293,8 +273,6 @@ defmodule CacheStrategyTest do
            ]}
       })
 
-      Process.sleep(50)
-
       :ok
     end
 
@@ -327,8 +305,6 @@ defmodule CacheStrategyTest do
           {Cache, :start_link,
            [[TestCache.FetchLayer, TestCache.MultiLayerFetch], [name: :multi_layer_fetch_sup]]}
       })
-
-      Process.sleep(50)
 
       :ok
     end

@@ -10,7 +10,6 @@ defmodule Cache.CounterTest do
 
   setup do
     start_supervised({Cache, [TestCounterCache]})
-    Process.sleep(50)
     :ok
   end
 
@@ -161,6 +160,16 @@ defmodule Cache.CounterTest do
     test "delete with string key" do
       TestCounterCache.increment("str_delete_key", 5)
       assert :ok === TestCounterCache.delete("str_delete_key")
+    end
+  end
+
+  describe "adapter calls against a counter that was never started" do
+    test "every operation returns an error tuple instead of raising" do
+      assert {:error, %ErrorMessage{code: :internal_server_error}} = Cache.Counter.get(:no_such_counter, 0)
+      assert {:error, %ErrorMessage{code: :internal_server_error}} = Cache.Counter.put(:no_such_counter, 0, 1)
+      assert {:error, %ErrorMessage{code: :internal_server_error}} = Cache.Counter.delete(:no_such_counter, 0)
+      assert {:error, %ErrorMessage{code: :internal_server_error}} = Cache.Counter.increment(:no_such_counter, 0)
+      assert {:error, %ErrorMessage{code: :internal_server_error}} = Cache.Counter.decrement(:no_such_counter, 0)
     end
   end
 

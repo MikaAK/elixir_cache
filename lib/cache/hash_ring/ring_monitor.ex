@@ -35,9 +35,6 @@ defmodule Cache.HashRing.RingMonitor do
     node_whitelist = Keyword.get(opts, :node_whitelist, [])
 
     table = :ets.new(history_table_name(cache_name), [:set, :public, :named_table])
-    :ets.insert(table, {:previous_rings, []})
-
-    :ok = :net_kernel.monitor_nodes(true, node_type: :all)
 
     {:ok,
      %{
@@ -46,7 +43,15 @@ defmodule Cache.HashRing.RingMonitor do
        history_size: history_size,
        node_blacklist: node_blacklist,
        node_whitelist: node_whitelist
-     }}
+     }, {:continue, :seed_and_monitor}}
+  end
+
+  @impl GenServer
+  def handle_continue(:seed_and_monitor, %{table: table} = state) do
+    :ets.insert(table, {:previous_rings, []})
+    :ok = :net_kernel.monitor_nodes(true, node_type: :all)
+
+    {:noreply, state}
   end
 
   @impl GenServer
@@ -76,7 +81,7 @@ defmodule Cache.HashRing.RingMonitor do
   defp safe_ets_lookup(table, key) do
     :ets.lookup(table, key)
   rescue
-    _ -> []
+    ArgumentError -> []
   end
 
   @spec history_table_name(atom()) :: atom()

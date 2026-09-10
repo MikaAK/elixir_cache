@@ -98,26 +98,26 @@ defmodule Cache.ConCache do
   def put(cache_name, key, _ttl \\ nil, value, _opts \\ [])
 
   def put(cache_name, key, nil, value, opts) do
-    if is_nil(opts[:dirty?]) or opts[:dirty?] do
+    if Keyword.get(opts, :dirty?, true) do
       ConCache.dirty_put(cache_name, key, value)
     else
       ConCache.put(cache_name, key, value)
     end
   rescue
-    exception ->
+    exception in ArgumentError ->
       {:error, ErrorMessage.internal_server_error(Exception.message(exception), %{cache: cache_name, key: key})}
   end
 
   def put(cache_name, key, ttl, value, opts) do
     item = %ConCache.Item{value: value, ttl: ttl}
 
-    if is_nil(opts[:dirty?]) or opts[:dirty?] do
+    if Keyword.get(opts, :dirty?, true) do
       ConCache.dirty_put(cache_name, key, item)
     else
       ConCache.put(cache_name, key, item)
     end
   rescue
-    exception ->
+    exception in ArgumentError ->
       {:error, ErrorMessage.internal_server_error(Exception.message(exception), %{cache: cache_name, key: key})}
   end
 
@@ -132,7 +132,7 @@ defmodule Cache.ConCache do
   def delete(cache_name, key, _opts \\ []) do
     ConCache.delete(cache_name, key)
   rescue
-    exception ->
+    exception in ArgumentError ->
       {:error, ErrorMessage.internal_server_error(Exception.message(exception), %{cache: cache_name, key: key})}
   end
 

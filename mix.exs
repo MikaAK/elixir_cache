@@ -59,8 +59,9 @@ defmodule ElixirCache.MixProject do
       {:libring, "~> 1.7"},
       {:credo, "~> 1.6", only: [:test, :dev], runtime: false},
       {:blitz_credo_checks, "~> 0.1", only: [:test, :dev], runtime: false},
+      {:mika_credo_rules, github: "MikaAK/mika_credo_rules", only: [:test, :dev], runtime: false},
       {:excoveralls, "~> 0.10", only: :test},
-      {:ex_doc, ">= 0.0.0", optional: true, only: :dev},
+      {:ex_doc, ">= 0.0.0", optional: true, only: :dev, runtime: false},
       {:dialyxir, "~> 1.0", optional: true, only: :test, runtime: false}
     ]
   end
@@ -70,7 +71,7 @@ defmodule ElixirCache.MixProject do
       maintainers: ["Mika Kalathil"],
       licenses: ["MIT"],
       links: %{"GitHub" => "https://github.com/mikaak/elixir_cache"},
-      files: ~w(mix.exs README.md CHANGELOG.md LICENSE lib)
+      files: ["mix.exs", "README.md", "CHANGELOG.md", "LICENSE", "lib"]
     ]
   end
 

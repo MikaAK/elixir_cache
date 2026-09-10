@@ -334,7 +334,7 @@ defmodule Cache.MultiLayer do
   defp layer_delete(_cache_name, key, layer), do: layer.delete(key)
 
   defp cache_module?(module) do
-    function_exported?(module, :get, 1) and function_exported?(module, :put, 2)
+    Code.ensure_loaded?(module) and function_exported?(module, :get, 1) and function_exported?(module, :put, 2)
   end
 
   defp invoke_callback({module, function, args}, extra_args) do

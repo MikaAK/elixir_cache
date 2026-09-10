@@ -101,7 +101,8 @@ defmodule Cache.RefreshAhead do
              %{
                id: :"#{cache_name}_refresh_tracker",
                start: {__MODULE__, :start_tracker, [tracker_name]}
-             }
+             },
+             {Task.Supervisor, name: task_supervisor_name(cache_name)}
            ],
            [strategy: :one_for_one]
          ]}
@@ -197,7 +198,7 @@ defmodule Cache.RefreshAhead do
     tracker = tracker_name(cache_name)
 
     if safe_ets_insert_new(tracker, {key, true}) do
-      Task.start(fn ->
+      Task.Supervisor.start_child(task_supervisor_name(cache_name), fn ->
         lock_resource = {:refresh_ahead_lock, cache_name, key}
         lock_id = {lock_resource, self()}
         lock_nodes = lock_nodes(adapter_opts[:lock_node_whitelist])
@@ -261,19 +262,19 @@ defmodule Cache.RefreshAhead do
   defp safe_ets_insert_new(tracker, record) do
     :ets.insert_new(tracker, record)
   rescue
-    _ -> false
+    ArgumentError -> false
   end
 
   defp safe_ets_delete(tracker, key) do
     :ets.delete(tracker, key)
   rescue
-    _ -> :ok
+    ArgumentError -> :ok
   end
 
   defp safe_global_set_lock(lock_id, lock_nodes) do
     :global.set_lock(lock_id, lock_nodes, 0)
   rescue
-    _ -> false
+    ArgumentError -> false
   end
 
   defp lock_nodes(lock_node_whitelist) do
@@ -301,4 +302,6 @@ defmodule Cache.RefreshAhead do
   end
 
   defp tracker_name(cache_name), do: :"#{cache_name}_refresh_tracker"
+
+  defp task_supervisor_name(cache_name), do: :"#{cache_name}_refresh_tasks"
 end

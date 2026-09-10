@@ -1,5 +1,5 @@
 defmodule Cache.MultiLayerBroadcastTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
 
   alias Cache.MultiLayer.Coordinator
 

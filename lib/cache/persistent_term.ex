@@ -56,7 +56,7 @@ defmodule Cache.PersistentTerm do
   def get(cache_name, key, _opts \\ []) do
     {:ok, :persistent_term.get({cache_name, key}, nil)}
   rescue
-    exception ->
+    exception in ArgumentError ->
       {:error, ErrorMessage.internal_server_error(Exception.message(exception), %{cache: cache_name, key: key})}
   end
 
@@ -66,7 +66,7 @@ defmodule Cache.PersistentTerm do
     :persistent_term.put({cache_name, key}, value)
     :ok
   rescue
-    exception ->
+    exception in ArgumentError ->
       {:error, ErrorMessage.internal_server_error(Exception.message(exception), %{cache: cache_name, key: key})}
   end
 
@@ -76,7 +76,7 @@ defmodule Cache.PersistentTerm do
     :persistent_term.erase({cache_name, key})
     :ok
   rescue
-    exception ->
+    exception in ArgumentError ->
       {:error, ErrorMessage.internal_server_error(Exception.message(exception), %{cache: cache_name, key: key})}
   end
 end
